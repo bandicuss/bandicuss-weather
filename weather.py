@@ -8,6 +8,12 @@ import textwrap
 import subprocess
 from datetime import datetime
 
+from rich.console import Console, Group
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+from rich.rule import Rule
+
 WIDTH = 58
 DEFAULT_STATION = "KDCA"
 
@@ -26,6 +32,13 @@ USER_AGENT = (
     "Bandicuss-Field-Console/3.0 "
     "(personal weather console)"
 )
+
+
+# Rich v4 interface
+console = Console()
+RICH_BORDER = "bright_cyan"
+RICH_LABEL = "grey62"
+RICH_VALUE = "white"
 
 
 # ==========================================================
@@ -1475,208 +1488,284 @@ def load_station(station):
 
 
 # ==========================================================
+# RICH V4 WEATHER CENTER DISPLAY
+# ==========================================================
+
+def rich_flight_category(value):
+    value = str(value or "N/A").upper()
+    colors = {
+        "VFR": "bold bright_green",
+        "MVFR": "bold bright_blue",
+        "IFR": "bold bright_red",
+        "LIFR": "bold magenta",
+    }
+    return Text(value, style=colors.get(value, "bold white"))
+
+
+def station_location(wx, station):
+    for key in ("name", "site", "stationName"):
+        value = wx.get(key)
+        if value:
+            return str(value).upper()
+    return station
+
+
+def dashboard_ceiling(wx):
+    ceiling = None
+    for cloud_layer in wx.get("clouds", []) or []:
+        if cloud_layer.get("cover") in ("BKN", "OVC", "VV"):
+            base = cloud_layer.get("base")
+            if base is not None and (ceiling is None or base < ceiling):
+                ceiling = base
+    return ceiling
+
+
+def dashboard_wind(wx):
+    speed = wx.get("wspd")
+    direction = wx.get("wdir")
+    gust = wx.get("wgst")
+
+    if speed is None:
+        return "N/A"
+
+    if direction is None:
+        text = f"VRB / {speed:.0f} KT"
+    else:
+        text = f"{direction:03.0f}° / {speed:.0f} KT"
+
+    if gust is not None:
+        text += f" G{gust:.0f}"
+
+    return text
+
+
+def build_v4_header():
+    title_text = Text(justify="center")
+    title_text.append("BANDICUSS", style="bold bright_cyan")
+    title_text.append("  WEATHER CENTER", style="bold white")
+
+    subtitle = Text(
+        "AVIATION • FORECAST • ALERTS • GRAPHICAL WEATHER",
+        style="grey62",
+        justify="center",
+    )
+
+    return Panel(
+        Group(title_text, subtitle),
+        border_style=RICH_BORDER,
+        padding=(0, 1),
+    )
+
+
+def build_v4_station_bar(station, wx, alert_count):
+    table = Table.grid(expand=True)
+    table.add_column(ratio=1)
+    table.add_column(ratio=2)
+    table.add_column(ratio=1)
+    table.add_column(ratio=1)
+
+    if alert_count is None:
+        alert_text = Text("UNAVAILABLE", style="bold yellow")
+    elif alert_count:
+        alert_text = Text(f"{alert_count} ACTIVE", style="bold yellow")
+    else:
+        alert_text = Text("0 ACTIVE", style="bold green")
+
+    table.add_row(
+        Text("STATION", style=RICH_LABEL),
+        Text(station, style="bold white"),
+        Text("FLIGHT CAT", style=RICH_LABEL),
+        rich_flight_category(wx.get("fltCat", "N/A")),
+    )
+
+    table.add_row(
+        Text("LOCATION", style=RICH_LABEL),
+        Text(station_location(wx, station), style="white"),
+        Text("NWS ALERTS", style=RICH_LABEL),
+        alert_text,
+    )
+
+    return Panel(table, border_style="blue", padding=(0, 1))
+
+
+def build_v4_conditions(wx):
+    temp_c = wx.get("temp")
+    dew_c = wx.get("dewp")
+    temp_f = c_to_f(temp_c)
+    dew_f = c_to_f(dew_c)
+    visibility = wx.get("visib")
+    alt_hpa = wx.get("altim")
+    ceiling = dashboard_ceiling(wx)
+
+    temp_text = f"{temp_f:.0f}°F" if temp_f is not None else "N/A"
+    dew_text = f"{dew_f:.0f}°F" if dew_f is not None else "N/A"
+    vis_text = f"{visibility} SM" if visibility is not None else "N/A"
+    ceiling_text = f"{ceiling} FT" if ceiling is not None else "CLR / NONE"
+    alt_text = f"{hpa_to_inhg(alt_hpa):.2f}" if alt_hpa is not None else "N/A"
+
+    table = Table.grid(expand=True)
+    table.add_column(ratio=1)
+    table.add_column(ratio=1)
+    table.add_column(ratio=1)
+    table.add_column(ratio=1)
+
+    table.add_row(
+        Text("TEMP", style=RICH_LABEL),
+        Text(temp_text, style=RICH_VALUE),
+        Text("DEWPOINT", style=RICH_LABEL),
+        Text(dew_text, style=RICH_VALUE),
+    )
+    table.add_row(
+        Text("WIND", style=RICH_LABEL),
+        Text(dashboard_wind(wx), style=RICH_VALUE),
+        Text("VISIBILITY", style=RICH_LABEL),
+        Text(vis_text, style=RICH_VALUE),
+    )
+    table.add_row(
+        Text("CEILING", style=RICH_LABEL),
+        Text(ceiling_text, style=RICH_VALUE),
+        Text("ALTIMETER", style=RICH_LABEL),
+        Text(alt_text, style=RICH_VALUE),
+    )
+
+    return Panel(
+        table,
+        title="[bold bright_cyan]CURRENT CONDITIONS[/]",
+        border_style=RICH_BORDER,
+        padding=(0, 1),
+    )
+
+
+def build_v4_menu():
+    menu = Table.grid(expand=True)
+    menu.add_column(width=6, justify="center")
+    menu.add_column(ratio=1)
+    menu.add_column(width=6, justify="center")
+    menu.add_column(ratio=1)
+
+    menu.add_row(
+        Text("[1]", style="bold bright_cyan"),
+        Text("AVIATION SUMMARY", style="white"),
+        Text("[4]", style="bold bright_cyan"),
+        Text("NWS ALERTS", style="white"),
+    )
+    menu.add_row(
+        Text("[2]", style="bold bright_cyan"),
+        Text("METAR / CONDITIONS", style="white"),
+        Text("[5]", style="bold bright_cyan"),
+        Text("NWS FORECAST", style="white"),
+    )
+    menu.add_row(
+        Text("[3]", style="bold bright_cyan"),
+        Text("TAF / TERMINAL FORECAST", style="white"),
+        Text("[6]", style="bold bright_cyan"),
+        Text("GRAPHICAL WEATHER", style="white"),
+    )
+
+    return Panel(
+        menu,
+        title="[bold bright_cyan]WEATHER PRODUCTS[/]",
+        border_style=RICH_BORDER,
+        padding=(1, 1),
+    )
+
+
+def build_v4_controls():
+    controls = Text(justify="center")
+    controls.append("[R]", style="bold bright_cyan")
+    controls.append(" REFRESH     ", style="white")
+    controls.append("[S]", style="bold bright_cyan")
+    controls.append(" CHANGE STATION     ", style="white")
+    controls.append("[Q]", style="bold bright_cyan")
+    controls.append(" EXIT", style="white")
+    return controls
+
+
+def draw_v4_dashboard(station, wx, alert_count):
+    console.clear()
+    console.print(build_v4_header())
+    console.print(build_v4_station_bar(station, wx, alert_count))
+    console.print(build_v4_conditions(wx))
+    console.print(build_v4_menu())
+    console.print(build_v4_controls())
+    console.print()
+    console.print(
+        Rule(
+            "[grey62]BANDICUSS WEATHER • v4 DEVELOPMENT[/]",
+            style="grey35",
+        )
+    )
+    console.print()
+
+
+# ==========================================================
 # WEATHER CENTER
 # ==========================================================
 
 def weather_menu(station):
-    metar, taf = load_station(
-        station
-    )
+    metar, taf = load_station(station)
 
     if metar is None:
         return station
 
-    alert_count, alerts = (
-        get_alert_count(metar)
-    )
+    alert_count, alerts = get_alert_count(metar)
 
     while True:
+        draw_v4_dashboard(station, metar, alert_count)
 
-        clear()
-
-        title(
-            "BANDICUSS WEATHER CENTER"
-        )
-
-        print()
-
-        print(
-            f" STATION: "
-            f"{station}"
-        )
-
-        print(
-            f" FLIGHT CATEGORY: "
-            f"{metar.get('fltCat', 'N/A')}"
-        )
-
-        if alert_count is None:
-            print(
-                " ACTIVE NWS ALERTS: "
-                "UNAVAILABLE"
-            )
-
-        else:
-            print(
-                f" ACTIVE NWS ALERTS: "
-                f"{alert_count}"
-            )
-
-        print()
-
-        line("-")
-        print(" WEATHER PRODUCTS")
-        line("-")
-        print()
-
-        print(
-            " [1] QUICK AVIATION SUMMARY"
-        )
-
-        print(
-            " [2] CURRENT CONDITIONS / METAR"
-        )
-
-        print(
-            " [3] TERMINAL FORECAST / TAF"
-        )
-
-        print(
-            " [4] ACTIVE NWS ALERTS"
-        )
-
-        print(
-            " [5] NWS FORECAST"
-        )
-
-        print(
-            " [6] GRAPHICAL WEATHER"
-        )
-
-        print(
-            " [7] REFRESH WEATHER"
-        )
-
-        print(
-            " [8] CHANGE STATION"
-        )
-
-        print(
-            " [Q] RETURN TO FIELD CONSOLE"
-        )
-
-        print()
-        line("=")
-
-        choice = input(
-            " SELECT: "
-        ).strip().lower()
+        choice = input(" SELECT OPTION: ").strip().lower()
 
         if choice == "1":
-
-            display_summary(
-                station,
-                metar,
-                taf
-            )
-
+            display_summary(station, metar, taf)
             pause()
 
         elif choice == "2":
-
-            display_metar(
-                station,
-                metar
-            )
-
+            display_metar(station, metar)
             pause()
 
         elif choice == "3":
-
-            display_taf(
-                station,
-                taf
-            )
-
+            display_taf(station, taf)
             pause()
 
         elif choice == "4":
-
-            display_alerts(
-                station,
-                metar,
-                alerts
-            )
-
+            display_alerts(station, metar, alerts)
             pause()
 
         elif choice == "5":
-
-            display_nws_forecast(
-                station,
-                metar
-            )
-
+            display_nws_forecast(station, metar)
             pause()
 
         elif choice == "6":
-
             graphical_weather_menu()
 
-        elif choice == "7":
-
-            new_metar, new_taf = (
-                load_station(
-                    station
-                )
-            )
+        elif choice == "r":
+            new_metar, new_taf = load_station(station)
 
             if new_metar is not None:
-
                 metar = new_metar
                 taf = new_taf
+                alert_count, alerts = get_alert_count(metar)
 
-                alert_count, alerts = (
-                    get_alert_count(
-                        metar
-                    )
-                )
-
-        elif choice == "8":
-
+        elif choice == "s":
             new_station = input(
                 "\n Enter ICAO station: "
             ).strip().upper()
 
             if new_station:
-
-                new_metar, new_taf = (
-                    load_station(
-                        new_station
-                    )
-                )
+                new_metar, new_taf = load_station(new_station)
 
                 if new_metar is not None:
-
                     station = new_station
                     metar = new_metar
                     taf = new_taf
-
-                    alert_count, alerts = (
-                        get_alert_count(
-                            metar
-                        )
-                    )
+                    alert_count, alerts = get_alert_count(metar)
 
         elif choice == "q":
             return station
 
         else:
             print()
-            print(
-                " Invalid selection."
-            )
-
+            print(" Invalid selection.")
             pause()
 
 
