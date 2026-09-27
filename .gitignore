@@ -1,0 +1,8 @@
+# Python generated files
+__pycache__/
+*.pyc
+
+# Local development backups
+install_v3_backup.sh
+weather_v3_source.py
+weather_v4_working.py
