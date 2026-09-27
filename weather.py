@@ -1691,7 +1691,7 @@ def draw_v4_dashboard(station, wx, alert_count):
     console.print()
     console.print(
         Rule(
-            "[grey62]BANDICUSS WEATHER • v4 DEVELOPMENT[/]",
+            "[grey62]BANDICUSS WEATHER • v4.0[/]",
             style="grey35",
         )
     )
