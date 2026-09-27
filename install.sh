@@ -12,14 +12,34 @@ echo "       BANDICUSS WEATHER INSTALLER"
 echo "=============================================="
 echo
 
-# Make sure Python 3 exists
+# Check for Python 3
 if ! command -v python3 >/dev/null 2>&1; then
     echo "ERROR: Python 3 was not found."
     echo "Please install Python 3 and run this installer again."
     exit 1
 fi
 
-# Make sure Chromium exists
+# Check for Rich
+if ! python3 -c "import rich" >/dev/null 2>&1; then
+    echo "Rich is required for the Bandicuss Weather interface."
+    echo
+    echo "Installing python3-rich..."
+    echo
+
+    sudo apt update
+    sudo apt install -y python3-rich
+
+    echo
+fi
+
+# Verify Rich after installation
+if ! python3 -c "import rich" >/dev/null 2>&1; then
+    echo "ERROR: Rich could not be installed."
+    echo "Bandicuss Weather requires python3-rich."
+    exit 1
+fi
+
+# Check for Chromium
 if ! command -v chromium >/dev/null 2>&1; then
     echo "WARNING: Chromium was not found."
     echo "Text weather products should still work,"
@@ -27,7 +47,7 @@ if ! command -v chromium >/dev/null 2>&1; then
     echo
 fi
 
-# Make sure lxterminal exists
+# Check for LXTerminal
 if ! command -v lxterminal >/dev/null 2>&1; then
     echo "ERROR: lxterminal was not found."
     echo "This installer is currently designed for"
@@ -35,7 +55,6 @@ if ! command -v lxterminal >/dev/null 2>&1; then
     exit 1
 fi
 
-# Make sure weather.py is beside this installer
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ ! -f "$SCRIPT_DIR/weather.py" ]; then
@@ -57,7 +76,7 @@ Version=1.0
 Type=Application
 Name=Bandicuss Weather
 Comment=Aviation and weather field console
-Exec=lxterminal -e bash -c "python3 $INSTALL_DIR/weather.py"
+Exec=lxterminal --title="Bandicuss Weather" -e bash -c "python3 $INSTALL_DIR/weather.py"
 Icon=weather-clear
 Terminal=false
 Categories=Utility;
