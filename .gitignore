@@ -7,3 +7,12 @@ install_v3_backup.sh
 weather_v3_source.py
 weather_v4_working.py
 weather_v4_release_backup.py
+install_v4_pre_fullscreen.sh
+weather_v4_dashboard_backup.py
+weather_before_summary_redesign.py
+weather_before_taf_redesign.py
+weather_before_alerts_redesign.py
+weather_before_forecast_redesign.py
+weather_before_forecast_redesign.py
+weather_before_graphical_redesign.py
+weather_before_menu_cleanup.py

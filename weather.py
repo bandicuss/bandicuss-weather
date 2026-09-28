@@ -404,11 +404,33 @@ def friendly_time(value):
 # ==========================================================
 
 def display_metar(station, wx):
-    clear()
+    console.clear()
 
-    title(
-        f"CURRENT CONDITIONS - {station}"
+    # ------------------------------------------------------
+    # HEADER
+    # ------------------------------------------------------
+
+    title_text = Text(justify="center")
+    title_text.append("BANDICUSS", style="bold bright_cyan")
+    title_text.append("  METAR / CURRENT CONDITIONS", style="bold white")
+
+    subtitle = Text(
+        f"{station} • OBSERVATION • AVIATION IMPACTS",
+        style="grey62",
+        justify="center",
     )
+
+    console.print(
+        Panel(
+            Group(title_text, subtitle),
+            border_style=RICH_BORDER,
+            padding=(0, 1),
+        )
+    )
+
+    # ------------------------------------------------------
+    # VALUES
+    # ------------------------------------------------------
 
     temp_c = wx.get("temp")
     dew_c = wx.get("dewp")
@@ -424,185 +446,384 @@ def display_metar(station, wx):
     alt_hpa = wx.get("altim")
     slp = wx.get("slp")
 
-    flight_cat = wx.get(
-        "fltCat",
-        "N/A"
-    )
-
-    weather = wx.get(
-        "wxString"
-    )
-
-    clouds = wx.get(
-        "clouds",
-        []
-    )
+    flight_cat = wx.get("fltCat", "N/A")
+    weather = wx.get("wxString")
+    clouds = wx.get("clouds", []) or []
 
     raw_metar = wx.get(
         "rawOb",
-        "METAR unavailable"
+        "METAR unavailable",
     )
 
     rh = relative_humidity(
         temp_c,
-        dew_c
+        dew_c,
     )
 
     wc = wind_chill(
         temp_f,
-        wind_speed
+        wind_speed,
     )
 
     hi = heat_index(
         temp_f,
-        rh
+        rh,
     )
 
-    print()
+    # ------------------------------------------------------
+    # AVIATION IMPACT COLORS
+    # ------------------------------------------------------
 
-    print(
-        f" FLIGHT CATEGORY : "
-        f"{flight_cat}"
+    def ceiling_style(base):
+        if base is None:
+            return "white"
+
+        if base < 500:
+            return "bold magenta"
+
+        if base < 1000:
+            return "bold bright_red"
+
+        if base <= 3000:
+            return "bold bright_blue"
+
+        return "bold bright_green"
+
+    def visibility_style(vis):
+        if vis is None:
+            return "white"
+
+        try:
+            vis = float(vis)
+        except (TypeError, ValueError):
+            return "white"
+
+        if vis < 1:
+            return "bold magenta"
+
+        if vis < 3:
+            return "bold bright_red"
+
+        if vis <= 5:
+            return "bold bright_blue"
+
+        return "bold bright_green"
+
+    # ------------------------------------------------------
+    # STATION STATUS
+    # ------------------------------------------------------
+
+    station_table = Table.grid(expand=True)
+    station_table.add_column(ratio=1)
+    station_table.add_column(ratio=2)
+    station_table.add_column(ratio=1)
+    station_table.add_column(ratio=1)
+
+    station_table.add_row(
+        Text("STATION", style=RICH_LABEL),
+        Text(station, style="bold white"),
+        Text("FLIGHT CATEGORY", style=RICH_LABEL),
+        rich_flight_category(flight_cat),
     )
 
-    if temp_c is not None:
-        print(
-            f" TEMPERATURE     : "
-            f"{temp_f:.1f} F / "
-            f"{temp_c:.1f} C"
-        )
-
-    if dew_c is not None:
-        print(
-            f" DEWPOINT        : "
-            f"{dew_f:.1f} F / "
-            f"{dew_c:.1f} C"
-        )
-
-    if rh is not None:
-        print(
-            f" REL HUMIDITY    : "
-            f"{rh:.0f}%"
-        )
-
-    if wc is not None:
-        print(
-            f" WIND CHILL      : "
-            f"{wc:.1f} F"
-        )
-
-    if hi is not None:
-        print(
-            f" HEAT INDEX      : "
-            f"{hi:.1f} F"
-        )
-
-    print()
-
-    if wind_speed is not None:
-
-        if wind_dir is None:
-            wind_text = (
-                f"Variable at "
-                f"{wind_speed:.0f} kt"
-            )
-
-        else:
-            direction = wind_cardinal(
-                wind_dir
-            )
-
-            wind_text = (
-                f"{wind_dir:03.0f} deg "
-                f"({direction}) at "
-                f"{wind_speed:.0f} kt"
-            )
-
-        if wind_gust is not None:
-            wind_text += (
-                f", gusting "
-                f"{wind_gust:.0f} kt"
-            )
-
-        print(
-            f" WIND            : "
-            f"{wind_text}"
-        )
-
-    if visibility is not None:
-        print(
-            f" VISIBILITY      : "
+    station_table.add_row(
+        Text("LOCATION", style=RICH_LABEL),
+        Text(
+            station_location(wx, station),
+            style="white",
+        ),
+        Text("VISIBILITY", style=RICH_LABEL),
+        Text(
             f"{visibility} SM"
+            if visibility is not None
+            else "N/A",
+            style=visibility_style(visibility),
+        ),
+    )
+
+    console.print(
+        Panel(
+            station_table,
+            border_style="blue",
+            padding=(0, 1),
+        )
+    )
+
+    # ------------------------------------------------------
+    # TEMPERATURE / MOISTURE
+    # ------------------------------------------------------
+
+    temp_table = Table.grid(expand=True)
+    temp_table.add_column(ratio=1)
+    temp_table.add_column(ratio=2)
+    temp_table.add_column(ratio=1)
+    temp_table.add_column(ratio=2)
+
+    temp_table.add_row(
+        Text("TEMPERATURE", style=RICH_LABEL),
+        Text(
+            f"{temp_f:.1f}°F / {temp_c:.1f}°C"
+            if temp_c is not None
+            else "N/A",
+            style=RICH_VALUE,
+        ),
+        Text("DEWPOINT", style=RICH_LABEL),
+        Text(
+            f"{dew_f:.1f}°F / {dew_c:.1f}°C"
+            if dew_c is not None
+            else "N/A",
+            style=RICH_VALUE,
+        ),
+    )
+
+    temp_table.add_row(
+        Text("REL HUMIDITY", style=RICH_LABEL),
+        Text(
+            f"{rh:.0f}%"
+            if rh is not None
+            else "N/A",
+            style=RICH_VALUE,
+        ),
+        Text("WIND CHILL", style=RICH_LABEL),
+        Text(
+            f"{wc:.1f}°F"
+            if wc is not None
+            else "N/A",
+            style=RICH_VALUE,
+        ),
+    )
+
+    temp_table.add_row(
+        Text("HEAT INDEX", style=RICH_LABEL),
+        Text(
+            f"{hi:.1f}°F"
+            if hi is not None
+            else "N/A",
+            style=RICH_VALUE,
+        ),
+        Text("PRESENT WX", style=RICH_LABEL),
+        Text(
+            str(weather)
+            if weather
+            else "NONE REPORTED",
+            style="white",
+        ),
+    )
+
+    console.print(
+        Panel(
+            temp_table,
+            title="[bold bright_cyan]TEMPERATURE / MOISTURE[/]",
+            border_style=RICH_BORDER,
+            padding=(0, 1),
+        )
+    )
+
+    # ------------------------------------------------------
+    # WIND / PRESSURE
+    # ------------------------------------------------------
+
+    if wind_speed is None:
+        wind_text = "N/A"
+
+    elif wind_dir is None:
+        wind_text = (
+            f"VARIABLE AT {wind_speed:.0f} KT"
         )
 
-    if alt_hpa is not None:
-        print(
-            f" ALTIMETER       : "
-            f"{hpa_to_inhg(alt_hpa):.2f} "
-            f"inHg"
-        )
-
-    if slp is not None:
-        print(
-            f" SEA LEVEL PRESS : "
-            f"{slp:.1f} hPa"
-        )
-
-    print()
-    print(" WEATHER:")
-
-    if weather:
-        wrapped(
-            weather,
-            "   "
-        )
     else:
-        print(
-            "   No significant "
-            "weather reported"
+        direction = wind_cardinal(wind_dir)
+
+        wind_text = (
+            f"{wind_dir:03.0f}° ({direction}) "
+            f"AT {wind_speed:.0f} KT"
         )
 
-    print()
-    print(" CLOUD LAYERS:")
+    if wind_gust is not None:
+        wind_text += (
+            f" GUSTING {wind_gust:.0f} KT"
+        )
+
+    pressure_table = Table.grid(expand=True)
+    pressure_table.add_column(ratio=1)
+    pressure_table.add_column(ratio=2)
+    pressure_table.add_column(ratio=1)
+    pressure_table.add_column(ratio=2)
+
+    pressure_table.add_row(
+        Text("WIND", style=RICH_LABEL),
+        Text(wind_text, style=RICH_VALUE),
+        Text("VISIBILITY", style=RICH_LABEL),
+        Text(
+            f"{visibility} SM"
+            if visibility is not None
+            else "N/A",
+            style=visibility_style(visibility),
+        ),
+    )
+
+    pressure_table.add_row(
+        Text("ALTIMETER", style=RICH_LABEL),
+        Text(
+            f"{hpa_to_inhg(alt_hpa):.2f} inHg"
+            if alt_hpa is not None
+            else "N/A",
+            style=RICH_VALUE,
+        ),
+        Text("SEA LEVEL PRESS", style=RICH_LABEL),
+        Text(
+            f"{slp:.1f} hPa"
+            if slp is not None
+            else "N/A",
+            style=RICH_VALUE,
+        ),
+    )
+
+    console.print(
+        Panel(
+            pressure_table,
+            title="[bold bright_cyan]WIND / VISIBILITY / PRESSURE[/]",
+            border_style=RICH_BORDER,
+            padding=(0, 1),
+        )
+    )
+
+    # ------------------------------------------------------
+    # CLOUD LAYERS
+    # ------------------------------------------------------
+
+    cloud_table = Table.grid(expand=True)
+    cloud_table.add_column(
+        width=12,
+        justify="center",
+    )
+    cloud_table.add_column(
+        width=18,
+        justify="right",
+    )
+    cloud_table.add_column(ratio=1)
+
+    cloud_table.add_row(
+        Text("COVER", style=RICH_LABEL),
+        Text("BASE", style=RICH_LABEL),
+        Text(" AVIATION IMPACT", style=RICH_LABEL),
+    )
 
     if clouds:
-
         for cloud_layer in clouds:
+            cover = str(
+                cloud_layer.get(
+                    "cover",
+                    "",
+                )
+            ).upper()
 
-            cover = cloud_layer.get(
-                "cover",
-                ""
-            )
+            base = cloud_layer.get("base")
 
-            base = cloud_layer.get(
-                "base"
+            is_ceiling = (
+                cover in (
+                    "BKN",
+                    "OVC",
+                    "VV",
+                )
             )
 
             if base is not None:
-                print(
-                    f"   {cover:<4} "
-                    f"{base:>6} ft"
-                )
+                base_text = f"{base} FT"
             else:
-                print(
-                    f"   {cover}"
-                )
+                base_text = "NOT REPORTED"
+
+            if is_ceiling and base is not None:
+                style = ceiling_style(base)
+
+                if base < 500:
+                    impact = "LIFR CEILING"
+
+                elif base < 1000:
+                    impact = "IFR CEILING"
+
+                elif base <= 3000:
+                    impact = "MVFR CEILING"
+
+                else:
+                    impact = "VFR CEILING"
+
+            elif is_ceiling:
+                style = "white"
+                impact = "CEILING"
+
+            else:
+                style = "white"
+                impact = "NON-CEILING LAYER"
+
+            cloud_table.add_row(
+                Text(cover or "N/A", style=style),
+                Text(base_text, style=style),
+                Text(f" {impact}", style=style),
+            )
 
     else:
-        print(
-            "   No cloud layers reported"
+        cloud_table.add_row(
+            Text("NONE", style="white"),
+            Text("—", style="grey62"),
+            Text(
+                "NO CLOUD LAYERS REPORTED",
+                style="grey62",
+            ),
         )
 
-    print()
-    line("-")
-    print(" RAW METAR")
-    line("-")
-    print()
+    console.print(
+        Panel(
+            cloud_table,
+            title="[bold bright_cyan]CLOUD LAYERS[/]",
+            border_style=RICH_BORDER,
+            padding=(0, 1),
+        )
+    )
 
-    wrapped(raw_metar)
+    # ------------------------------------------------------
+    # RAW METAR
+    # ------------------------------------------------------
 
-    print()
-    line("=")
+    console.print(
+        Panel(
+            Text(
+                str(raw_metar),
+                style="bold white",
+            ),
+            title="[bold bright_cyan]RAW METAR[/]",
+            border_style="blue",
+            padding=(0, 1),
+        )
+    )
+
+    # ------------------------------------------------------
+    # FOOTER
+    # ------------------------------------------------------
+
+    controls = Text(justify="center")
+    controls.append(
+        "[ENTER]",
+        style="bold bright_cyan",
+    )
+    controls.append(
+        " RETURN TO WEATHER CENTER",
+        style="white",
+    )
+
+    console.print(controls)
+    console.print()
+
+    console.print(
+        Rule(
+            "[grey62]BANDICUSS WEATHER • METAR / CONDITIONS • v4.0[/]",
+            style="grey35",
+        )
+    )
+
+    console.print()
+
+    input(" Press ENTER to return...")
 
 
 # ==========================================================
@@ -610,60 +831,563 @@ def display_metar(station, wx):
 # ==========================================================
 
 def display_taf(station, taf):
-    clear()
+    console.clear()
 
-    title(
-        f"TERMINAL FORECAST - {station}"
+    # ------------------------------------------------------
+    # HEADER
+    # ------------------------------------------------------
+
+    title_text = Text(justify="center")
+    title_text.append("BANDICUSS", style="bold bright_cyan")
+    title_text.append("  TERMINAL FORECAST", style="bold white")
+
+    subtitle = Text(
+        f"{station} • TAF • FORECAST AVIATION IMPACTS",
+        style="grey62",
+        justify="center",
     )
 
-    print()
+    console.print(
+        Panel(
+            Group(title_text, subtitle),
+            border_style=RICH_BORDER,
+            padding=(0, 1),
+        )
+    )
+
+    # ------------------------------------------------------
+    # NO TAF AVAILABLE
+    # ------------------------------------------------------
 
     if not taf:
-        print(
-            " No TAF is available "
-            "for this station."
+        console.print(
+            Panel(
+                Text(
+                    f"No TAF is available for {station}.",
+                    style="bold yellow",
+                    justify="center",
+                ),
+                title="[bold bright_cyan]TAF STATUS[/]",
+                border_style="yellow",
+                padding=(1, 1),
+            )
         )
 
-        print()
-        line("=")
+        controls = Text(justify="center")
+        controls.append("[ENTER]", style="bold bright_cyan")
+        controls.append(
+            " RETURN TO WEATHER CENTER",
+            style="white",
+        )
 
+        console.print(controls)
+        console.print()
+        console.print(
+            Rule(
+                "[grey62]BANDICUSS WEATHER • TERMINAL FORECAST • v4.0[/]",
+                style="grey35",
+            )
+        )
+        console.print()
+
+        input(" Press ENTER to return...")
         return
 
-    raw_taf = taf.get(
-        "rawTAF"
-    )
+    # ------------------------------------------------------
+    # TAF DATA
+    # ------------------------------------------------------
+
+    raw_taf = taf.get("rawTAF")
 
     if raw_taf is None:
-        raw_taf = taf.get(
-            "rawOb"
+        raw_taf = taf.get("rawOb")
+
+    raw_taf = raw_taf or "TAF unavailable"
+
+    issue_time = taf.get("issueTime")
+
+    # ------------------------------------------------------
+    # IMPACT HELPERS
+    # ------------------------------------------------------
+
+    def ceiling_style(base):
+        if base < 500:
+            return "bold magenta", "LIFR"
+
+        if base < 1000:
+            return "bold bright_red", "IFR"
+
+        if base <= 3000:
+            return "bold bright_blue", "MVFR"
+
+        return "bold bright_green", "VFR"
+
+    def visibility_style(vis):
+        if vis < 1:
+            return "bold magenta", "LIFR"
+
+        if vis < 3:
+            return "bold bright_red", "IFR"
+
+        if vis <= 5:
+            return "bold bright_blue", "MVFR"
+
+        return "bold bright_green", "VFR"
+
+    def impact_rank(category):
+        ranks = {
+            "VFR": 0,
+            "MVFR": 1,
+            "IFR": 2,
+            "LIFR": 3,
+        }
+        return ranks.get(category, -1)
+
+    def category_style(category):
+        styles = {
+            "VFR": "bold bright_green",
+            "MVFR": "bold bright_blue",
+            "IFR": "bold bright_red",
+            "LIFR": "bold magenta",
+        }
+        return styles.get(category, "white")
+
+    # ------------------------------------------------------
+    # TAF GROUP PARSING
+    # ------------------------------------------------------
+
+    words = str(raw_taf).split()
+    groups = []
+    current = []
+
+    for word in words:
+        is_change_group = (
+            word.startswith("FM")
+            or word == "BECMG"
+            or word == "TEMPO"
+            or word == "PROB30"
+            or word == "PROB40"
         )
 
-    if raw_taf is None:
-        raw_taf = (
-            "TAF unavailable"
-        )
+        if is_change_group and current:
+            groups.append(current)
+            current = []
 
-    issue_time = taf.get(
-        "issueTime"
+        current.append(word)
+
+    if current:
+        groups.append(current)
+
+    # ------------------------------------------------------
+    # FORECAST INFORMATION
+    # ------------------------------------------------------
+
+    info_table = Table.grid(expand=True)
+    info_table.add_column(ratio=1)
+    info_table.add_column(ratio=2)
+    info_table.add_column(ratio=1)
+    info_table.add_column(ratio=2)
+
+    info_table.add_row(
+        Text("STATION", style=RICH_LABEL),
+        Text(station, style="bold white"),
+        Text("ISSUE TIME", style=RICH_LABEL),
+        Text(
+            str(issue_time) if issue_time else "N/A",
+            style="white",
+        ),
     )
 
-    if issue_time:
-        print(
-            f" ISSUE TIME: "
-            f"{issue_time}"
-        )
-
-        print()
-
-    print(" RAW TAF:")
-    print()
-
-    formatted_taf(
-        raw_taf
+    info_table.add_row(
+        Text("FORECAST GROUPS", style=RICH_LABEL),
+        Text(str(len(groups)), style="bold white"),
+        Text("TAF STATUS", style=RICH_LABEL),
+        Text("AVAILABLE", style="bold green"),
     )
 
-    print()
-    line("=")
+    console.print(
+        Panel(
+            info_table,
+            border_style="blue",
+            padding=(0, 1),
+        )
+    )
+
+    # ------------------------------------------------------
+    # FORECAST GROUPS
+    # ------------------------------------------------------
+
+    for index, group in enumerate(groups):
+
+        if not group:
+            continue
+
+        if index == 0:
+            group_name = "BASE"
+            marker_style = "bold bright_cyan"
+            forecast_words = group
+
+        else:
+            marker = group[0]
+
+            if marker.startswith("FM"):
+                group_name = marker
+                marker_style = "bold bright_green"
+
+            elif marker == "TEMPO":
+                group_name = marker
+                marker_style = "bold yellow"
+
+            elif marker.startswith("PROB"):
+                group_name = marker
+                marker_style = "bold magenta"
+
+            elif marker == "BECMG":
+                group_name = marker
+                marker_style = "bold bright_blue"
+
+            else:
+                group_name = marker
+                marker_style = "bold white"
+
+            forecast_words = group[1:]
+
+        # --------------------------------------------------
+        # IDENTIFY CEILING / VISIBILITY IMPACTS
+        # --------------------------------------------------
+
+        ceiling_impacts = []
+        visibility_impacts = []
+
+        lowest_ceiling = None
+        lowest_visibility = None
+
+        for word in forecast_words:
+            token = word.upper()
+
+            # ----------------------------------------------
+            # CEILING: BKN / OVC / VV
+            # ----------------------------------------------
+
+            if (
+                token.startswith("BKN")
+                or token.startswith("OVC")
+                or token.startswith("VV")
+            ):
+                if token.startswith("VV"):
+                    height_text = token[2:5]
+                else:
+                    height_text = token[3:6]
+
+                if height_text.isdigit():
+                    base = int(height_text) * 100
+
+                    style, category = ceiling_style(base)
+
+                    ceiling_impacts.append(
+                        (
+                            token,
+                            base,
+                            style,
+                            category,
+                        )
+                    )
+
+                    if (
+                        lowest_ceiling is None
+                        or base < lowest_ceiling
+                    ):
+                        lowest_ceiling = base
+
+            # ----------------------------------------------
+            # VISIBILITY
+            # ----------------------------------------------
+
+            vis_value = None
+
+            if token.endswith("SM"):
+                vis_token = token[:-2]
+
+                try:
+                    if "/" in vis_token:
+                        numerator, denominator = vis_token.split("/", 1)
+
+                        vis_value = (
+                            float(numerator)
+                            / float(denominator)
+                        )
+
+                    else:
+                        vis_value = float(vis_token)
+
+                except (ValueError, ZeroDivisionError):
+                    vis_value = None
+
+            if vis_value is not None:
+                style, category = visibility_style(
+                    vis_value
+                )
+
+                visibility_impacts.append(
+                    (
+                        token,
+                        vis_value,
+                        style,
+                        category,
+                    )
+                )
+
+                if (
+                    lowest_visibility is None
+                    or vis_value < lowest_visibility
+                ):
+                    lowest_visibility = vis_value
+
+        # --------------------------------------------------
+        # DETERMINE GROUP IMPACT
+        # --------------------------------------------------
+
+        group_category = None
+
+        if lowest_ceiling is not None:
+            _, ceiling_category = ceiling_style(
+                lowest_ceiling
+            )
+            group_category = ceiling_category
+
+        if lowest_visibility is not None:
+            _, visibility_category = visibility_style(
+                lowest_visibility
+            )
+
+            if (
+                group_category is None
+                or impact_rank(visibility_category)
+                > impact_rank(group_category)
+            ):
+                group_category = visibility_category
+
+        # --------------------------------------------------
+        # GROUP HEADER
+        # --------------------------------------------------
+
+        group_header = Text()
+        group_header.append(
+            group_name,
+            style=marker_style,
+        )
+
+        if group_category:
+            group_header.append(
+                "   •   ",
+                style="grey62",
+            )
+            group_header.append(
+                group_category,
+                style=category_style(group_category),
+            )
+
+        # --------------------------------------------------
+        # COLOR FORECAST TOKENS
+        # --------------------------------------------------
+
+        forecast_line = Text()
+
+        for word_index, word in enumerate(forecast_words):
+
+            token = word.upper()
+            token_style = "white"
+
+            for (
+                ceiling_token,
+                _,
+                style,
+                _,
+            ) in ceiling_impacts:
+                if token == ceiling_token:
+                    token_style = style
+                    break
+
+            for (
+                vis_token,
+                _,
+                style,
+                _,
+            ) in visibility_impacts:
+                if token == vis_token:
+                    token_style = style
+                    break
+
+            if word_index:
+                forecast_line.append(" ")
+
+            forecast_line.append(
+                word,
+                style=token_style,
+            )
+
+        # --------------------------------------------------
+        # IMPACT SUMMARY
+        # --------------------------------------------------
+
+        impact_table = Table.grid(expand=True)
+        impact_table.add_column(ratio=1)
+        impact_table.add_column(ratio=2)
+        impact_table.add_column(ratio=1)
+        impact_table.add_column(ratio=2)
+
+        if lowest_ceiling is not None:
+            ceiling_color, ceiling_category = ceiling_style(
+                lowest_ceiling
+            )
+
+            ceiling_text = Text(
+                f"{lowest_ceiling} FT • {ceiling_category}",
+                style=ceiling_color,
+            )
+
+        else:
+            ceiling_text = Text(
+                "NO CEILING RESTRICTION",
+                style="grey62",
+            )
+
+        if lowest_visibility is not None:
+            vis_color, vis_category = visibility_style(
+                lowest_visibility
+            )
+
+            visibility_text = Text(
+                f"{lowest_visibility:g} SM • {vis_category}",
+                style=vis_color,
+            )
+
+        else:
+            visibility_text = Text(
+                "NOT RESTRICTED / NOT REPORTED",
+                style="grey62",
+            )
+
+        impact_table.add_row(
+            Text("CEILING", style=RICH_LABEL),
+            ceiling_text,
+            Text("VISIBILITY", style=RICH_LABEL),
+            visibility_text,
+        )
+
+        group_contents = Group(
+            forecast_line,
+            Text(""),
+            impact_table,
+        )
+
+        console.print(
+            Panel(
+                group_contents,
+                title=group_header,
+                border_style=(
+                    category_style(group_category)
+                    if group_category
+                    else "blue"
+                ),
+                padding=(0, 1),
+            )
+        )
+
+    # ------------------------------------------------------
+    # RAW TAF
+    # ------------------------------------------------------
+
+    raw_taf_renderables = []
+
+    for index, group in enumerate(groups):
+        group_text = Text()
+
+        if index == 0:
+            group_text.append(
+                "BASE  ",
+                style="bold bright_cyan",
+            )
+            taf_words = group
+
+        else:
+            marker = group[0]
+
+            if marker.startswith("FM"):
+                marker_style = "bold bright_green"
+
+            elif marker == "TEMPO":
+                marker_style = "bold yellow"
+
+            elif marker.startswith("PROB"):
+                marker_style = "bold magenta"
+
+            elif marker == "BECMG":
+                marker_style = "bold bright_blue"
+
+            else:
+                marker_style = "bold white"
+
+            group_text.append(
+                f"{marker}  ",
+                style=marker_style,
+            )
+
+            taf_words = group[1:]
+
+        group_text.append(
+            " ".join(taf_words),
+            style="white",
+        )
+
+        raw_taf_renderables.append(group_text)
+
+    if raw_taf_renderables:
+        raw_taf_display = Group(
+            *raw_taf_renderables
+        )
+    else:
+        raw_taf_display = Text(
+            "TAF unavailable",
+            style="yellow",
+        )
+
+    console.print(
+        Panel(
+            raw_taf_display,
+            title="[bold bright_cyan]RAW TAF[/]",
+            border_style="blue",
+            padding=(0, 1),
+        )
+    )
+
+    # ------------------------------------------------------
+    # FOOTER
+    # ------------------------------------------------------
+
+    controls = Text(justify="center")
+    controls.append(
+        "[ENTER]",
+        style="bold bright_cyan",
+    )
+    controls.append(
+        " RETURN TO WEATHER CENTER",
+        style="white",
+    )
+
+    console.print(controls)
+    console.print()
+
+    console.print(
+        Rule(
+            "[grey62]BANDICUSS WEATHER • TERMINAL FORECAST • v4.0[/]",
+            style="grey35",
+        )
+    )
+
+    console.print()
+
+    input(" Press ENTER to return...")
 
 
 # ==========================================================
@@ -671,11 +1395,33 @@ def display_taf(station, taf):
 # ==========================================================
 
 def display_summary(station, wx, taf):
-    clear()
+    console.clear()
 
-    title(
-        f"AVIATION WEATHER - {station}"
+    # ------------------------------------------------------
+    # HEADER
+    # ------------------------------------------------------
+
+    title_text = Text(justify="center")
+    title_text.append("BANDICUSS", style="bold bright_cyan")
+    title_text.append("  AVIATION SUMMARY", style="bold white")
+
+    subtitle = Text(
+        f"{station} • CURRENT CONDITIONS • METAR • TAF",
+        style="grey62",
+        justify="center",
     )
+
+    console.print(
+        Panel(
+            Group(title_text, subtitle),
+            border_style=RICH_BORDER,
+            padding=(0, 1),
+        )
+    )
+
+    # ------------------------------------------------------
+    # WEATHER VALUES
+    # ------------------------------------------------------
 
     temp_c = wx.get("temp")
     dew_c = wx.get("dewp")
@@ -690,395 +1436,725 @@ def display_summary(station, wx, taf):
     visibility = wx.get("visib")
     alt_hpa = wx.get("altim")
 
-    flight_cat = wx.get(
-        "fltCat",
-        "N/A"
-    )
-
-    clouds = wx.get(
-        "clouds",
-        []
-    )
-
-    print()
-
-    print(
-        f" FLIGHT CATEGORY : "
-        f"{flight_cat}"
-    )
-
-    if (
-        temp_c is not None
-        and dew_c is not None
-    ):
-        print(
-            f" TEMP / DEWPOINT : "
-            f"{temp_f:.0f}/"
-            f"{dew_f:.0f} F "
-            f"({temp_c:.0f}/"
-            f"{dew_c:.0f} C)"
-        )
-
-    elif temp_c is not None:
-        print(
-            f" TEMPERATURE     : "
-            f"{temp_f:.0f} F "
-            f"({temp_c:.0f} C)"
-        )
-
-    print()
-
-    if wind_speed is not None:
-
-        if wind_dir is None:
-            wind_text = (
-                f"VRB "
-                f"{wind_speed:.0f} KT"
-            )
-
-        else:
-            wind_text = (
-                f"{wind_dir:03.0f} "
-                f"{wind_speed:.0f} KT"
-            )
-
-        if wind_gust is not None:
-            wind_text += (
-                f" G{wind_gust:.0f}"
-            )
-
-        print(
-            f" WIND            : "
-            f"{wind_text}"
-        )
-
-    if visibility is not None:
-        print(
-            f" VISIBILITY      : "
-            f"{visibility} SM"
-        )
-
-    if alt_hpa is not None:
-        print(
-            f" ALTIMETER       : "
-            f"{hpa_to_inhg(alt_hpa):.2f} "
-            f"inHg"
-        )
+    flight_cat = wx.get("fltCat", "N/A")
+    clouds = wx.get("clouds", []) or []
 
     ceiling = None
 
     for cloud_layer in clouds:
-
-        if cloud_layer.get(
-            "cover"
-        ) in (
-            "BKN",
-            "OVC",
-            "VV"
-        ):
-
-            base = cloud_layer.get(
-                "base"
-            )
+        if cloud_layer.get("cover") in ("BKN", "OVC", "VV"):
+            base = cloud_layer.get("base")
 
             if base is not None:
-
-                if (
-                    ceiling is None
-                    or base < ceiling
-                ):
+                if ceiling is None or base < ceiling:
                     ceiling = base
 
-    if ceiling is not None:
-        print(
-            f" CEILING         : "
-            f"{ceiling} ft"
-        )
-    else:
-        print(
-            " CEILING         : "
-            "None reported"
-        )
+    # ------------------------------------------------------
+    # STATION STATUS
+    # ------------------------------------------------------
 
-    print()
+    station_table = Table.grid(expand=True)
+    station_table.add_column(ratio=1)
+    station_table.add_column(ratio=2)
+    station_table.add_column(ratio=1)
+    station_table.add_column(ratio=1)
 
-    if taf:
-        print(
-            " TAF             : "
-            "AVAILABLE"
-        )
-    else:
-        print(
-            " TAF             : "
-            "NOT AVAILABLE"
-        )
+    station_table.add_row(
+        Text("STATION", style=RICH_LABEL),
+        Text(station, style="bold white"),
+        Text("FLIGHT CATEGORY", style=RICH_LABEL),
+        rich_flight_category(flight_cat),
+    )
 
-    print()
-    line("-")
-    print(" METAR")
-    line("-")
-    print()
+    station_table.add_row(
+        Text("LOCATION", style=RICH_LABEL),
+        Text(station_location(wx, station), style="white"),
+        Text("TAF STATUS", style=RICH_LABEL),
+        Text(
+            "AVAILABLE" if taf else "NOT AVAILABLE",
+            style="bold green" if taf else "bold yellow",
+        ),
+    )
 
-    wrapped(
-        wx.get(
-            "rawOb",
-            "METAR unavailable"
+    console.print(
+        Panel(
+            station_table,
+            border_style="blue",
+            padding=(0, 1),
         )
     )
 
-    if taf:
+    # ------------------------------------------------------
+    # CURRENT CONDITIONS
+    # ------------------------------------------------------
 
-        print()
-        line("-")
-        print(" TAF")
-        line("-")
-        print()
+    if temp_f is not None:
+        temp_text = f"{temp_f:.0f}°F / {temp_c:.0f}°C"
+    else:
+        temp_text = "N/A"
 
-        raw_taf = taf.get(
-            "rawTAF"
+    if dew_f is not None:
+        dew_text = f"{dew_f:.0f}°F / {dew_c:.0f}°C"
+    else:
+        dew_text = "N/A"
+
+    if wind_speed is None:
+        wind_text = "N/A"
+
+    elif wind_dir is None:
+        wind_text = f"VRB / {wind_speed:.0f} KT"
+
+    else:
+        wind_text = f"{wind_dir:03.0f}° / {wind_speed:.0f} KT"
+
+    if wind_gust is not None:
+        wind_text += f" G{wind_gust:.0f}"
+
+    if visibility is not None:
+        visibility_text = f"{visibility} SM"
+    else:
+        visibility_text = "N/A"
+
+    if alt_hpa is not None:
+        altimeter_text = f"{hpa_to_inhg(alt_hpa):.2f} inHg"
+    else:
+        altimeter_text = "N/A"
+
+    if ceiling is not None:
+        ceiling_text = f"{ceiling} FT"
+    else:
+        ceiling_text = "CLR / NONE"
+
+    conditions = Table.grid(expand=True)
+    conditions.add_column(ratio=1)
+    conditions.add_column(ratio=2)
+    conditions.add_column(ratio=1)
+    conditions.add_column(ratio=2)
+
+    conditions.add_row(
+        Text("TEMPERATURE", style=RICH_LABEL),
+        Text(temp_text, style=RICH_VALUE),
+        Text("DEWPOINT", style=RICH_LABEL),
+        Text(dew_text, style=RICH_VALUE),
+    )
+
+    conditions.add_row(
+        Text("WIND", style=RICH_LABEL),
+        Text(wind_text, style=RICH_VALUE),
+        Text("VISIBILITY", style=RICH_LABEL),
+        Text(visibility_text, style=RICH_VALUE),
+    )
+
+    conditions.add_row(
+        Text("CEILING", style=RICH_LABEL),
+        Text(ceiling_text, style=RICH_VALUE),
+        Text("ALTIMETER", style=RICH_LABEL),
+        Text(altimeter_text, style=RICH_VALUE),
+    )
+
+    console.print(
+        Panel(
+            conditions,
+            title="[bold bright_cyan]CURRENT CONDITIONS[/]",
+            border_style=RICH_BORDER,
+            padding=(0, 1),
         )
+    )
+
+    # ------------------------------------------------------
+    # METAR
+    # ------------------------------------------------------
+
+    raw_metar = wx.get(
+        "rawOb",
+        "METAR unavailable",
+    )
+
+    console.print(
+        Panel(
+            Text(
+                str(raw_metar),
+                style="bold white",
+            ),
+            title="[bold bright_cyan]METAR[/]",
+            border_style="blue",
+            padding=(0, 1),
+        )
+    )
+
+    # ------------------------------------------------------
+    # TAF
+    # ------------------------------------------------------
+
+    if taf:
+        raw_taf = taf.get("rawTAF")
 
         if raw_taf is None:
-            raw_taf = taf.get(
-                "rawOb"
+            raw_taf = taf.get("rawOb")
+
+        raw_taf = raw_taf or "TAF unavailable"
+
+        words = str(raw_taf).split()
+        groups = []
+        current = []
+
+        for word in words:
+            is_change_group = (
+                word.startswith("FM")
+                or word == "BECMG"
+                or word == "TEMPO"
+                or word == "PROB30"
+                or word == "PROB40"
             )
 
-        formatted_taf(
-            raw_taf
-            or "TAF unavailable"
+            if is_change_group and current:
+                groups.append(current)
+                current = []
+
+            current.append(word)
+
+        if current:
+            groups.append(current)
+
+        taf_renderables = []
+
+        for index, group in enumerate(groups):
+            group_text = Text()
+
+            if index == 0:
+                group_text.append(
+                    "BASE  ",
+                    style="bold bright_cyan",
+                )
+                forecast_words = group
+
+            else:
+                marker = group[0]
+
+                if marker.startswith("FM"):
+                    marker_style = "bold bright_green"
+
+                elif marker == "TEMPO":
+                    marker_style = "bold yellow"
+
+                elif marker.startswith("PROB"):
+                    marker_style = "bold magenta"
+
+                elif marker == "BECMG":
+                    marker_style = "bold bright_blue"
+
+                else:
+                    marker_style = "bold white"
+
+                group_text.append(
+                    f"{marker}  ",
+                    style=marker_style,
+                )
+
+                forecast_words = group[1:]
+
+            group_text.append(
+                " ".join(forecast_words),
+                style="white",
+            )
+
+            taf_renderables.append(group_text)
+
+        if taf_renderables:
+            taf_display = Group(*taf_renderables)
+        else:
+            taf_display = Text(
+                "TAF unavailable",
+                style="yellow",
+            )
+
+    else:
+        taf_display = Text(
+            "TAF NOT AVAILABLE",
+            style="bold yellow",
         )
 
-    print()
-    line("=")
+    console.print(
+        Panel(
+            taf_display,
+            title="[bold bright_cyan]TERMINAL AERODROME FORECAST[/]",
+            border_style=RICH_BORDER,
+            padding=(0, 1),
+        )
+    )
+
+    # ------------------------------------------------------
+    # FOOTER
+    # ------------------------------------------------------
+
+    controls = Text(justify="center")
+    controls.append("[ENTER]", style="bold bright_cyan")
+    controls.append(" RETURN TO WEATHER CENTER", style="white")
+
+    console.print(controls)
+    console.print()
+
+    console.print(
+        Rule(
+            "[grey62]BANDICUSS WEATHER • AVIATION SUMMARY • v4.0[/]",
+            style="grey35",
+        )
+    )
+
+    console.print()
+
+    input(" Press ENTER to return...")
 
 
 # ==========================================================
-# NWS ALERT DISPLAY
-# ==========================================================
-
 def display_alerts(
     station,
     wx,
     cached_alerts=None
 ):
-    clear()
+    console.clear()
 
-    title(
-        f"ACTIVE NWS ALERTS - {station}"
+    # ------------------------------------------------------
+    # HEADER
+    # ------------------------------------------------------
+
+    title_text = Text(justify="center")
+    title_text.append(
+        "BANDICUSS",
+        style="bold bright_cyan",
+    )
+    title_text.append(
+        "  NWS ALERTS",
+        style="bold white",
+    )
+
+    subtitle = Text(
+        f"{station} • WATCHES • WARNINGS • ADVISORIES",
+        style="grey62",
+        justify="center",
+    )
+
+    console.print(
+        Panel(
+            Group(title_text, subtitle),
+            border_style=RICH_BORDER,
+            padding=(0, 1),
+        )
     )
 
     lat = wx.get("lat")
     lon = wx.get("lon")
 
-    print()
+    # ------------------------------------------------------
+    # RETURN CONTROL
+    # ------------------------------------------------------
 
-    if lat is None or lon is None:
-        print(
-            " Station coordinates "
-            "are unavailable."
+    def alerts_footer():
+        controls = Text(justify="center")
+        controls.append(
+            "[ENTER]",
+            style="bold bright_cyan",
+        )
+        controls.append(
+            " RETURN TO WEATHER CENTER",
+            style="white",
         )
 
-        print()
-        line("=")
+        console.print(controls)
+        console.print()
 
+        console.print(
+            Rule(
+                "[grey62]BANDICUSS WEATHER • NWS ALERTS • v4.0[/]",
+                style="grey35",
+            )
+        )
+
+        console.print()
+
+        input(" Press ENTER to return...")
+
+    # ------------------------------------------------------
+    # SEVERITY COLORS
+    # ------------------------------------------------------
+
+    def severity_style(severity):
+        severity = str(
+            severity or "Unknown"
+        ).upper()
+
+        styles = {
+            "EXTREME": "bold magenta",
+            "SEVERE": "bold bright_red",
+            "MODERATE": "bold yellow",
+            "MINOR": "bold bright_cyan",
+        }
+
+        return styles.get(
+            severity,
+            "bold white",
+        )
+
+    # ------------------------------------------------------
+    # COORDINATE CHECK
+    # ------------------------------------------------------
+
+    if lat is None or lon is None:
+        console.print(
+            Panel(
+                Text(
+                    "Station coordinates are unavailable.",
+                    style="bold yellow",
+                    justify="center",
+                ),
+                title="[bold yellow]ALERT DATA UNAVAILABLE[/]",
+                border_style="yellow",
+                padding=(1, 1),
+            )
+        )
+
+        alerts_footer()
         return
 
-    if cached_alerts is None:
+    # ------------------------------------------------------
+    # RETRIEVE ALERTS
+    # ------------------------------------------------------
 
-        print(
-            " Retrieving active "
-            "NWS alerts..."
+    if cached_alerts is None:
+        console.print(
+            Text(
+                " Retrieving active NWS alerts...",
+                style="grey62",
+            )
         )
 
         try:
             alerts = fetch_nws_alerts(
                 lat,
-                lon
+                lon,
             )
 
         except Exception as error:
+            console.print()
 
-            print()
-            print(
-                " Unable to retrieve "
-                "NWS alerts."
+            console.print(
+                Panel(
+                    Group(
+                        Text(
+                            "Unable to retrieve NWS alerts.",
+                            style="bold bright_red",
+                        ),
+                        Text(""),
+                        Text(
+                            str(error),
+                            style="white",
+                        ),
+                    ),
+                    title="[bold bright_red]NWS ALERT ERROR[/]",
+                    border_style="bright_red",
+                    padding=(1, 1),
+                )
             )
 
-            print()
-
-            wrapped(
-                str(error),
-                " "
-            )
-
-            print()
-            line("=")
-
+            alerts_footer()
             return
+
+        console.clear()
+
+        console.print(
+            Panel(
+                Group(title_text, subtitle),
+                border_style=RICH_BORDER,
+                padding=(0, 1),
+            )
+        )
 
     else:
         alerts = cached_alerts
 
-    clear()
-
-    title(
-        f"ACTIVE NWS ALERTS - {station}"
-    )
-
-    print()
+    # ------------------------------------------------------
+    # NO ACTIVE ALERTS
+    # ------------------------------------------------------
 
     if not alerts:
+        status_table = Table.grid(expand=True)
+        status_table.add_column(ratio=1)
+        status_table.add_column(ratio=2)
+        status_table.add_column(ratio=1)
+        status_table.add_column(ratio=2)
 
-        print(
-            " No active NWS watches, "
-            "warnings, or advisories "
-            "were found for this location."
+        status_table.add_row(
+            Text("STATION", style=RICH_LABEL),
+            Text(station, style="bold white"),
+            Text("ACTIVE ALERTS", style=RICH_LABEL),
+            Text("0", style="bold bright_green"),
         )
 
-        print()
-        line("=")
+        console.print(
+            Panel(
+                status_table,
+                border_style="blue",
+                padding=(0, 1),
+            )
+        )
 
+        console.print(
+            Panel(
+                Text(
+                    "No active NWS watches, warnings, or advisories "
+                    "were found for this location.",
+                    style="bold bright_green",
+                    justify="center",
+                ),
+                title="[bold bright_green]NO ACTIVE ALERTS[/]",
+                border_style="bright_green",
+                padding=(1, 1),
+            )
+        )
+
+        alerts_footer()
         return
 
-    print(
-        f" ACTIVE ALERTS: "
-        f"{len(alerts)}"
+    # ------------------------------------------------------
+    # ALERT STATUS
+    # ------------------------------------------------------
+
+    status_table = Table.grid(expand=True)
+    status_table.add_column(ratio=1)
+    status_table.add_column(ratio=2)
+    status_table.add_column(ratio=1)
+    status_table.add_column(ratio=2)
+
+    status_table.add_row(
+        Text("STATION", style=RICH_LABEL),
+        Text(station, style="bold white"),
+        Text("ACTIVE ALERTS", style=RICH_LABEL),
+        Text(
+            str(len(alerts)),
+            style="bold yellow",
+        ),
     )
 
-    print()
+    console.print(
+        Panel(
+            status_table,
+            border_style="blue",
+            padding=(0, 1),
+        )
+    )
+
+    # ------------------------------------------------------
+    # ALERT PANELS
+    # ------------------------------------------------------
 
     for number, alert in enumerate(
         alerts,
-        start=1
+        start=1,
     ):
-
         properties = alert.get(
             "properties",
-            {}
+            {},
         )
 
         event = properties.get(
             "event",
-            "Weather Alert"
+            "Weather Alert",
         )
 
         severity = properties.get(
             "severity",
-            "Unknown"
+            "Unknown",
         )
 
         urgency = properties.get(
             "urgency",
-            "Unknown"
+            "Unknown",
         )
 
         certainty = properties.get(
             "certainty",
-            "Unknown"
+            "Unknown",
         )
 
         headline = properties.get(
-            "headline"
+            "headline",
         )
 
         area = properties.get(
-            "areaDesc"
+            "areaDesc",
         )
 
         effective = properties.get(
-            "effective"
+            "effective",
         )
 
         expires = properties.get(
-            "expires"
+            "expires",
         )
 
         description = properties.get(
-            "description"
+            "description",
         )
 
         instruction = properties.get(
-            "instruction"
+            "instruction",
         )
 
-        line("-")
-
-        print(
-            f" ALERT {number}: "
-            f"{event}"
+        alert_style = severity_style(
+            severity
         )
 
-        line("-")
-        print()
+        # --------------------------------------------------
+        # ALERT SUMMARY
+        # --------------------------------------------------
 
-        print(
-            f" SEVERITY : "
-            f"{severity}"
+        alert_info = Table.grid(expand=True)
+        alert_info.add_column(ratio=1)
+        alert_info.add_column(ratio=2)
+        alert_info.add_column(ratio=1)
+        alert_info.add_column(ratio=2)
+
+        alert_info.add_row(
+            Text("SEVERITY", style=RICH_LABEL),
+            Text(
+                str(severity).upper(),
+                style=alert_style,
+            ),
+            Text("URGENCY", style=RICH_LABEL),
+            Text(
+                str(urgency).upper(),
+                style="white",
+            ),
         )
 
-        print(
-            f" URGENCY  : "
-            f"{urgency}"
+        alert_info.add_row(
+            Text("CERTAINTY", style=RICH_LABEL),
+            Text(
+                str(certainty).upper(),
+                style="white",
+            ),
+            Text("ALERT", style=RICH_LABEL),
+            Text(
+                f"{number} OF {len(alerts)}",
+                style="white",
+            ),
         )
 
-        print(
-            f" CERTAINTY: "
-            f"{certainty}"
+        alert_info.add_row(
+            Text("EFFECTIVE", style=RICH_LABEL),
+            Text(
+                friendly_time(effective),
+                style="white",
+            ),
+            Text("EXPIRES", style=RICH_LABEL),
+            Text(
+                friendly_time(expires),
+                style="white",
+            ),
         )
 
-        print()
+        console.print(
+            Panel(
+                alert_info,
+                title=Text(
+                    str(event).upper(),
+                    style=alert_style,
+                ),
+                border_style=alert_style,
+                padding=(0, 1),
+            )
+        )
+
+        # --------------------------------------------------
+        # AREA / HEADLINE
+        # --------------------------------------------------
+
+        overview_items = []
 
         if area:
-            print(" AREA:")
-
-            wrapped(
-                area,
-                "   "
+            area_text = Text()
+            area_text.append(
+                "AREA\n",
+                style=RICH_LABEL,
             )
-
-            print()
+            area_text.append(
+                str(area),
+                style="white",
+            )
+            overview_items.append(
+                area_text
+            )
 
         if headline:
-            print(" HEADLINE:")
+            if overview_items:
+                overview_items.append(
+                    Text("")
+                )
 
-            wrapped(
-                headline,
-                "   "
+            headline_text = Text()
+            headline_text.append(
+                "HEADLINE\n",
+                style=RICH_LABEL,
+            )
+            headline_text.append(
+                str(headline),
+                style="bold white",
+            )
+            overview_items.append(
+                headline_text
             )
 
-            print()
+        if overview_items:
+            console.print(
+                Panel(
+                    Group(
+                        *overview_items
+                    ),
+                    title="[bold bright_cyan]ALERT OVERVIEW[/]",
+                    border_style="blue",
+                    padding=(0, 1),
+                )
+            )
 
-        print(
-            f" EFFECTIVE: "
-            f"{friendly_time(effective)}"
-        )
-
-        print(
-            f" EXPIRES  : "
-            f"{friendly_time(expires)}"
-        )
+        # --------------------------------------------------
+        # DESCRIPTION
+        # --------------------------------------------------
 
         if description:
-            print()
-            print(" DESCRIPTION:")
-
-            wrapped(
-                description,
-                "   "
+            console.print(
+                Panel(
+                    Text(
+                        str(description),
+                        style="white",
+                    ),
+                    title="[bold bright_cyan]DESCRIPTION[/]",
+                    border_style="blue",
+                    padding=(0, 1),
+                )
             )
+
+        # --------------------------------------------------
+        # INSTRUCTIONS
+        # --------------------------------------------------
 
         if instruction:
-            print()
-            print(" INSTRUCTIONS:")
-
-            wrapped(
-                instruction,
-                "   "
+            console.print(
+                Panel(
+                    Text(
+                        str(instruction),
+                        style="bold white",
+                    ),
+                    title="[bold yellow]SAFETY / INSTRUCTIONS[/]",
+                    border_style="yellow",
+                    padding=(0, 1),
+                )
             )
 
-        print()
+    # ------------------------------------------------------
+    # FOOTER
+    # ------------------------------------------------------
 
-    line("=")
+    alerts_footer()
 
 
 # ==========================================================
@@ -1086,187 +2162,372 @@ def display_alerts(
 # ==========================================================
 
 def display_nws_forecast(station, wx):
-    clear()
+    console.clear()
 
-    title(
-        f"NWS FORECAST - {station}"
+    title_text = Text(justify="center")
+    title_text.append("BANDICUSS", style="bold bright_cyan")
+    title_text.append("  NWS FORECAST", style="bold white")
+
+    subtitle = Text(
+        f"{station} • NATIONAL WEATHER SERVICE",
+        style="grey62",
+        justify="center",
     )
+
+    header = Panel(
+        Group(title_text, subtitle),
+        border_style=RICH_BORDER,
+        padding=(0, 1),
+    )
+
+    console.print(header)
 
     lat = wx.get("lat")
     lon = wx.get("lon")
 
-    print()
+    def forecast_footer():
+        console.print()
 
-    if lat is None or lon is None:
-        print(
-            " Station coordinates "
-            "are unavailable."
+        controls = Text(justify="center")
+        controls.append("[ENTER]", style="bold bright_cyan")
+        controls.append(
+            " RETURN TO WEATHER CENTER",
+            style="white",
         )
 
-        print()
-        line("=")
+        console.print(controls)
+        console.print()
 
+        console.print(
+            Rule(
+                "[grey62]BANDICUSS WEATHER • "
+                "NWS FORECAST • v4.0[/]",
+                style="grey35",
+            )
+        )
+
+        console.print()
+        input(" Press ENTER to return...")
+
+    if lat is None or lon is None:
+        console.print(
+            Panel(
+                Text(
+                    "Station coordinates are unavailable.",
+                    style="bold yellow",
+                    justify="center",
+                ),
+                title="[bold yellow]FORECAST DATA UNAVAILABLE[/]",
+                border_style="yellow",
+                padding=(1, 1),
+            )
+        )
+
+        forecast_footer()
         return
 
-    print(
-        " Retrieving NWS forecast..."
+    console.print(
+        Text(
+            " Retrieving NWS forecast...",
+            style="grey62",
+        )
     )
 
     try:
         forecast = fetch_nws_forecast(
             lat,
-            lon
+            lon,
         )
 
     except urllib.error.HTTPError as error:
+        console.print()
 
-        print()
-        print(
-            " NWS forecast is not "
-            "available for this location."
+        error_text = Text(justify="center")
+        error_text.append(
+            "NWS forecast is not available "
+            "for this location.\n",
+            style="bold yellow",
+        )
+        error_text.append(
+            f"HTTP ERROR: {error.code}",
+            style="white",
         )
 
-        print(
-            f" HTTP ERROR: "
-            f"{error.code}"
+        console.print(
+            Panel(
+                error_text,
+                title="[bold yellow]FORECAST UNAVAILABLE[/]",
+                border_style="yellow",
+                padding=(1, 1),
+            )
         )
 
-        print()
-        line("=")
-
+        forecast_footer()
         return
 
     except Exception as error:
+        console.print()
 
-        print()
-        print(
-            " Unable to retrieve "
-            "NWS forecast."
+        error_text = Text()
+        error_text.append(
+            "Unable to retrieve NWS forecast.\n\n",
+            style="bold bright_red",
         )
-
-        print()
-
-        wrapped(
+        error_text.append(
             str(error),
-            " "
+            style="white",
         )
 
-        print()
-        line("=")
+        console.print(
+            Panel(
+                error_text,
+                title="[bold bright_red]NWS FORECAST ERROR[/]",
+                border_style="bright_red",
+                padding=(1, 1),
+            )
+        )
 
+        forecast_footer()
         return
 
     if not forecast:
-        print()
-        print(
-            " Forecast unavailable."
+        console.print()
+
+        console.print(
+            Panel(
+                Text(
+                    "Forecast unavailable.",
+                    style="bold yellow",
+                    justify="center",
+                ),
+                title="[bold yellow]FORECAST UNAVAILABLE[/]",
+                border_style="yellow",
+                padding=(1, 1),
+            )
         )
 
-        print()
-        line("=")
-
+        forecast_footer()
         return
 
     periods = forecast.get(
         "properties",
-        {}
+        {},
     ).get(
         "periods",
-        []
+        [],
     )
 
-    clear()
-
-    title(
-        f"NWS FORECAST - {station}"
-    )
-
-    print()
+    console.clear()
+    console.print(header)
 
     if not periods:
-        print(
-            " No forecast periods "
-            "were returned."
+        console.print(
+            Panel(
+                Text(
+                    "No forecast periods were returned.",
+                    style="bold yellow",
+                    justify="center",
+                ),
+                title="[bold yellow]FORECAST UNAVAILABLE[/]",
+                border_style="yellow",
+                padding=(1, 1),
+            )
         )
 
-        print()
-        line("=")
-
+        forecast_footer()
         return
 
-    for period in periods[:8]:
+    status_table = Table.grid(expand=True)
+    status_table.add_column(ratio=1)
+    status_table.add_column(ratio=2)
+    status_table.add_column(ratio=1)
+    status_table.add_column(ratio=2)
 
+    status_table.add_row(
+        Text("STATION", style=RICH_LABEL),
+        Text(station, style="bold white"),
+        Text("PERIODS", style=RICH_LABEL),
+        Text(
+            str(min(len(periods), 8)),
+            style="bold bright_cyan",
+        ),
+    )
+
+    status_table.add_row(
+        Text("SOURCE", style=RICH_LABEL),
+        Text(
+            "NATIONAL WEATHER SERVICE",
+            style="white",
+        ),
+        Text("DISPLAY", style=RICH_LABEL),
+        Text(
+            "NEXT 8 PERIODS",
+            style="white",
+        ),
+    )
+
+    console.print(
+        Panel(
+            status_table,
+            border_style="blue",
+            padding=(0, 1),
+        )
+    )
+
+    for number, period in enumerate(
+        periods[:8],
+        start=1,
+    ):
         name = period.get(
             "name",
-            "Forecast"
+            "Forecast",
         )
 
         temperature = period.get(
-            "temperature"
+            "temperature",
         )
 
         unit = period.get(
             "temperatureUnit",
-            "F"
+            "F",
         )
 
         short = period.get(
             "shortForecast",
-            ""
+            "",
         )
 
         detailed = period.get(
             "detailedForecast",
-            ""
+            "",
         )
 
         wind_speed = period.get(
             "windSpeed",
-            ""
+            "",
         )
 
         wind_direction = period.get(
             "windDirection",
-            ""
+            "",
         )
 
-        line("-")
-        print(
-            f" {name.upper()}"
+        is_daytime = period.get(
+            "isDaytime",
         )
-        line("-")
-        print()
+
+        if is_daytime is True:
+            period_style = "bold bright_yellow"
+            border_style = "yellow"
+            period_type = "DAY"
+
+        elif is_daytime is False:
+            period_style = "bold bright_blue"
+            border_style = "blue"
+            period_type = "NIGHT"
+
+        else:
+            period_style = "bold bright_cyan"
+            border_style = RICH_BORDER
+            period_type = "PERIOD"
+
+        summary_table = Table.grid(expand=True)
+        summary_table.add_column(ratio=1)
+        summary_table.add_column(ratio=2)
+        summary_table.add_column(ratio=1)
+        summary_table.add_column(ratio=2)
 
         if temperature is not None:
-            print(
-                f" TEMP : "
-                f"{temperature} {unit}"
+            temperature_text = (
+                f"{temperature}°{unit}"
             )
+        else:
+            temperature_text = "N/A"
 
         if wind_speed:
-            print(
-                f" WIND : "
-                f"{wind_direction} "
-                f"{wind_speed}"
+            wind_text = " ".join(
+                part
+                for part in (
+                    str(wind_direction),
+                    str(wind_speed),
+                )
+                if part
             )
+        else:
+            wind_text = "N/A"
+
+        summary_table.add_row(
+            Text("TEMP", style=RICH_LABEL),
+            Text(
+                temperature_text,
+                style="bold white",
+            ),
+            Text("WIND", style=RICH_LABEL),
+            Text(
+                wind_text,
+                style="white",
+            ),
+        )
+
+        summary_table.add_row(
+            Text("PERIOD", style=RICH_LABEL),
+            Text(
+                f"{number} OF "
+                f"{min(len(periods), 8)}",
+                style="white",
+            ),
+            Text("TYPE", style=RICH_LABEL),
+            Text(
+                period_type,
+                style=period_style,
+            ),
+        )
+
+        period_items = [summary_table]
 
         if short:
-            print()
-            wrapped(
-                short,
-                " "
+            period_items.append(Text(""))
+
+            short_text = Text()
+            short_text.append(
+                "SUMMARY\n",
+                style=RICH_LABEL,
             )
+            short_text.append(
+                str(short),
+                style="bold white",
+            )
+
+            period_items.append(short_text)
 
         if detailed:
-            print()
-            wrapped(
-                detailed,
-                " "
+            period_items.append(Text(""))
+
+            detail_text = Text()
+            detail_text.append(
+                "DETAILS\n",
+                style=RICH_LABEL,
+            )
+            detail_text.append(
+                str(detailed),
+                style="white",
             )
 
-        print()
+            period_items.append(detail_text)
 
-    line("=")
+        console.print(
+            Panel(
+                Group(*period_items),
+                title=Text(
+                    str(name).upper(),
+                    style=period_style,
+                ),
+                border_style=border_style,
+                padding=(0, 1),
+            )
+        )
+
+    forecast_footer()
 
 
 # ==========================================================
@@ -1330,94 +2591,241 @@ def launch_browser(url, product_name):
 
 def graphical_weather_menu():
     while True:
+        console.clear()
 
-        clear()
-
-        title(
-            "GRAPHICAL WEATHER"
+        title_text = Text(justify="center")
+        title_text.append(
+            "BANDICUSS",
+            style="bold bright_cyan",
         )
-
-        print()
-        print(
-            " [1] NWS RADAR"
-        )
-        print(
-            " [2] GOES SATELLITE"
-        )
-        print(
-            " [3] SPC CONVECTIVE OUTLOOKS"
-        )
-        print(
-            " [4] WPC FORECAST PRODUCTS"
-        )
-        print(
-            " [5] NHC / TROPICAL WEATHER"
-        )
-        print(
-            " [Q] BACK TO WEATHER CENTER"
+        title_text.append(
+            "  GRAPHICAL WEATHER",
+            style="bold white",
         )
 
-        print()
-        line("=")
+        subtitle = Text(
+            "RADAR • SATELLITE • CONVECTIVE • "
+            "FORECAST • TROPICAL",
+            style="grey62",
+            justify="center",
+        )
+
+        console.print(
+            Panel(
+                Group(title_text, subtitle),
+                border_style=RICH_BORDER,
+                padding=(0, 1),
+            )
+        )
+
+        info = Text(justify="center")
+        info.append(
+            "Select a product below to open it in Chromium.",
+            style="grey70",
+        )
+
+        console.print(
+            Panel(
+                info,
+                border_style="blue",
+                padding=(0, 1),
+            )
+        )
+
+        products = Table.grid(expand=True)
+
+        products.add_column(
+            width=6,
+            justify="center",
+        )
+        products.add_column(ratio=1)
+
+        products.add_row(
+            Text("[1]", style="bold bright_cyan"),
+            Group(
+                Text(
+                    "NWS RADAR",
+                    style="bold white",
+                ),
+                Text(
+                    "National radar imagery and "
+                    "precipitation monitoring",
+                    style="grey62",
+                ),
+            ),
+        )
+
+        products.add_row(
+            Text(""),
+            Text(""),
+        )
+
+        products.add_row(
+            Text("[2]", style="bold bright_cyan"),
+            Group(
+                Text(
+                    "GOES SATELLITE",
+                    style="bold white",
+                ),
+                Text(
+                    "Geostationary satellite imagery "
+                    "and atmospheric monitoring",
+                    style="grey62",
+                ),
+            ),
+        )
+
+        products.add_row(
+            Text(""),
+            Text(""),
+        )
+
+        products.add_row(
+            Text("[3]", style="bold bright_cyan"),
+            Group(
+                Text(
+                    "SPC CONVECTIVE OUTLOOKS",
+                    style="bold white",
+                ),
+                Text(
+                    "Severe thunderstorm and "
+                    "convective outlook products",
+                    style="grey62",
+                ),
+            ),
+        )
+
+        products.add_row(
+            Text(""),
+            Text(""),
+        )
+
+        products.add_row(
+            Text("[4]", style="bold bright_cyan"),
+            Group(
+                Text(
+                    "WPC FORECAST PRODUCTS",
+                    style="bold white",
+                ),
+                Text(
+                    "National forecast, precipitation, "
+                    "and analysis products",
+                    style="grey62",
+                ),
+            ),
+        )
+
+        products.add_row(
+            Text(""),
+            Text(""),
+        )
+
+        products.add_row(
+            Text("[5]", style="bold bright_cyan"),
+            Group(
+                Text(
+                    "NHC / TROPICAL WEATHER",
+                    style="bold white",
+                ),
+                Text(
+                    "Tropical cyclone and hurricane "
+                    "forecast products",
+                    style="grey62",
+                ),
+            ),
+        )
+
+        console.print(
+            Panel(
+                products,
+                title="[bold bright_cyan]"
+                "GRAPHICAL PRODUCTS[/]",
+                border_style=RICH_BORDER,
+                padding=(1, 1),
+            )
+        )
+
+        controls = Text(justify="center")
+        controls.append(
+            "[1-5]",
+            style="bold bright_cyan",
+        )
+        controls.append(
+            " OPEN PRODUCT     ",
+            style="white",
+        )
+        controls.append(
+            "[Q]",
+            style="bold bright_cyan",
+        )
+        controls.append(
+            " BACK TO WEATHER CENTER",
+            style="white",
+        )
+
+        console.print(controls)
+        console.print()
+
+        console.print(
+            Rule(
+                "[grey62]BANDICUSS WEATHER • "
+                "GRAPHICAL WEATHER • v4.0[/]",
+                style="grey35",
+            )
+        )
+
+        console.print()
 
         choice = input(
-            " SELECT: "
+            " SELECT PRODUCT: "
         ).strip().lower()
 
         if choice == "1":
-
             launch_browser(
                 NWS_RADAR_URL,
-                "NWS RADAR"
+                "NWS RADAR",
             )
-
             pause()
 
         elif choice == "2":
-
             launch_browser(
                 GOES_URL,
-                "GOES SATELLITE"
+                "GOES SATELLITE",
             )
-
             pause()
 
         elif choice == "3":
-
             launch_browser(
                 SPC_URL,
-                "SPC CONVECTIVE OUTLOOKS"
+                "SPC CONVECTIVE OUTLOOKS",
             )
-
             pause()
 
         elif choice == "4":
-
             launch_browser(
                 WPC_URL,
-                "WPC FORECAST PRODUCTS"
+                "WPC FORECAST PRODUCTS",
             )
-
             pause()
 
         elif choice == "5":
-
             launch_browser(
                 NHC_URL,
-                "NHC / TROPICAL WEATHER"
+                "NHC / TROPICAL WEATHER",
             )
-
             pause()
 
         elif choice == "q":
             return
 
         else:
-            print()
-            print(
-                " Invalid selection."
+            console.print()
+            console.print(
+                Text(
+                    " Invalid selection.",
+                    style="bold yellow",
+                )
             )
-
             pause()
 
 
@@ -1717,23 +3125,18 @@ def weather_menu(station):
 
         if choice == "1":
             display_summary(station, metar, taf)
-            pause()
 
         elif choice == "2":
             display_metar(station, metar)
-            pause()
 
         elif choice == "3":
             display_taf(station, taf)
-            pause()
 
         elif choice == "4":
             display_alerts(station, metar, alerts)
-            pause()
 
         elif choice == "5":
             display_nws_forecast(station, metar)
-            pause()
 
         elif choice == "6":
             graphical_weather_menu()
