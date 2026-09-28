@@ -1,36 +1,93 @@
-# Bandicuss Weather
+# Bandicuss Weather v4.0
 
 Bandicuss Weather is a lightweight aviation and weather field console built for the ClockworkPi uConsole.
 
-It provides terminal-based aviation weather information along with quick access to official graphical weather products.
+Version 4.0 features a redesigned Rich terminal interface optimized for the uConsole display, aviation weather tools, National Weather Service products, and quick access to official graphical weather resources.
 
 ## Features
 
-### Aviation Weather
+### Weather Center
 
-- Quick aviation weather summary
-- Current conditions
-- Raw METAR
-- Decoded METAR information
-- TAF retrieval
-- Formatted TAF change groups
-- Flight category
-- Temperature and dewpoint
-- Relative humidity
-- Wind and gust information
-- Visibility
-- Altimeter setting
-- Ceiling information
-- Weather and cloud layers
+The main Weather Center provides quick access to:
 
-### NWS Weather
-
-- Active NWS alerts
-- Active alert count on the main screen
-- Detailed watch, warning, and advisory information
-- NWS point forecasts
+- Aviation Summary
+- METAR / Conditions
+- TAF
+- NWS Alerts
+- NWS Forecast
+- Graphical Weather
 - Weather refresh
 - ICAO station selection
+
+The v4.0 interface uses Rich terminal panels, tables, status information, and weather-impact highlighting designed for the uConsole screen.
+
+### Aviation Summary
+
+The Aviation Summary provides a quick operational overview of the selected station, including:
+
+- Flight category
+- TAF availability
+- Current conditions
+- METAR
+- Formatted TAF information
+
+### METAR / Conditions
+
+Detailed current aviation weather information includes:
+
+- Raw METAR
+- Decoded conditions
+- Flight category
+- Ceiling
+- Visibility
+- Temperature
+- Dewpoint
+- Relative humidity
+- Wind chill when applicable
+- Heat index when applicable
+- Wind direction and speed
+- Wind gusts
+- Altimeter setting
+- Sea-level pressure
+- Present weather
+- Cloud layers
+
+Weather-impact information such as ceiling and visibility is highlighted by flight category.
+
+### TAF
+
+The TAF display includes:
+
+- Raw TAF
+- Formatted forecast groups
+- Change groups
+- Aviation weather impact highlighting
+
+### NWS Alerts
+
+Bandicuss Weather retrieves active National Weather Service alerts for supported locations.
+
+Alert information includes:
+
+- Active alert count
+- Event
+- Severity
+- Urgency
+- Certainty
+- Effective and expiration information
+- Alert details
+
+Alert panels are visually highlighted according to NWS-provided severity.
+
+### NWS Forecast
+
+The forecast display provides National Weather Service point forecast information including:
+
+- Day and night forecast periods
+- Temperature
+- Wind
+- Forecast summary
+- Detailed forecast information
 
 ### Graphical Weather
 
@@ -38,13 +95,19 @@ Bandicuss Weather can launch official graphical weather products in Chromium:
 
 - NWS Radar
 - NOAA GOES Satellite
-- SPC Convective Outlooks
-- WPC Forecast Products
-- National Hurricane Center / Tropical Weather
+- Storm Prediction Center
+- Weather Prediction Center
+- National Hurricane Center
+
+## Startup Interface
+
+Version 4.0 includes an animated Bandicuss Weather startup screen and station-selection interface.
+
+The default station can be accepted by pressing **Enter**, or another ICAO airport identifier can be entered before opening the Weather Center.
 
 ## Data Sources
 
-Bandicuss Weather uses publicly available weather information from:
+Bandicuss Weather uses publicly available weather information and official graphical products from:
 
 - Aviation Weather Center
 - National Weather Service
@@ -55,24 +118,28 @@ Bandicuss Weather uses publicly available weather information from:
 
 ## Requirements
 
-Bandicuss Weather was developed and tested on a ClockworkPi uConsole running Debian Linux with a Raspberry Pi Compute Module 4.
+Bandicuss Weather v4.0 was developed and tested on a ClockworkPi uConsole running Debian Linux with a Raspberry Pi Compute Module 4.
 
-The current installer expects:
+The installer expects:
 
 - Python 3
 - Internet connection
-- Chromium
 - LXTerminal
 - Graphical desktop environment
 
-No additional Python packages are currently required.
+Bandicuss Weather also uses the Python **Rich** package for its terminal interface.
+
+If Rich is not already installed, the installer will attempt to install the Debian `python3-rich` package automatically.
+
+Chromium is required for graphical weather products. If Chromium is not installed, the terminal-based weather functions can still be used.
 
 ## Installation
 
-Open a terminal and clone the repository:
+Clone the repository:
 
 ```bash
 git clone https://github.com/bandicuss/bandicuss-weather.git
+```
 
 Enter the downloaded folder:
 
@@ -88,12 +155,30 @@ Run the installer:
 
 The installer will:
 
-1. Create the Bandicuss Weather application directory.
-2. Install `weather.py`.
-3. Create a Bandicuss Weather desktop launcher.
-4. Make the desktop launcher executable.
+1. Verify Python 3 is available.
+2. Install `python3-rich` if Rich is not already available.
+3. Install Bandicuss Weather to `~/.local/share/bandicuss-weather`.
+4. Create a Bandicuss Weather desktop launcher.
+5. Configure automatic fullscreen launching when a compatible labwc configuration is detected.
+6. Preserve a backup of the labwc configuration before adding the fullscreen rule.
+
+If labwc is not detected, installation will continue normally without automatic fullscreen configuration.
 
 After installation, double-click **Bandicuss Weather** on the desktop and choose **Execute**.
+
+## Fullscreen Support
+
+On supported ClockworkPi uConsole labwc desktops, the installer configures the Bandicuss Weather LXTerminal window to automatically open fullscreen.
+
+The fullscreen rule applies specifically to the terminal window titled:
+
+```text
+Bandicuss Weather
+```
+
+Other LXTerminal windows are not affected.
+
+The installer checks for an existing Bandicuss Weather rule before making changes, preventing duplicate fullscreen rules when the installer is run again.
 
 ## Manual Launch
 
@@ -111,7 +196,7 @@ The default ICAO station is:
 KDCA
 ```
 
-A different ICAO identifier can be entered when the application starts.
+A different ICAO airport identifier can be entered when the application starts.
 
 Examples:
 
@@ -123,23 +208,39 @@ KJFK
 EGLL
 ```
 
-## Updating Weather Data
+## Controls
 
-Use **Refresh Weather** from the main Weather Center to retrieve updated METAR, TAF, and NWS alert information.
+From the main Weather Center:
 
-## Notes
+```text
+[1] Aviation Summary
+[2] METAR / Conditions
+[3] TAF
+[4] NWS Alerts
+[5] NWS Forecast
+[6] Graphical Weather
+[R] Refresh Weather
+[S] Change Station
+[Q] Exit
+```
+
+## Weather Data Notes
 
 NWS alerts and NWS point forecasts are primarily intended for locations supported by the U.S. National Weather Service.
 
 METAR and TAF availability depends on the selected aviation station and the data available from the Aviation Weather Center.
 
-Graphical products require Chromium and an active internet connection.
+Graphical weather products require Chromium and an active internet connection.
+
+An active internet connection is required to retrieve live weather data.
 
 ## Project Status
 
-Bandicuss Weather is an actively developed personal uConsole project.
+**Current version: v4.0**
 
-Additional features may be added as development continues.
+Bandicuss Weather is an actively developed personal uConsole weather project.
+
+Additional features and modules may be added as development continues.
 
 ## Author
 
