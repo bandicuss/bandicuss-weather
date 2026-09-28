@@ -6,6 +6,7 @@ import os
 import math
 import textwrap
 import subprocess
+import time
 from datetime import datetime
 
 from rich.console import Console, Group
@@ -3176,38 +3177,358 @@ def weather_menu(station):
 # MAIN
 # ==========================================================
 
+def startup_animation():
+    """Short animated Bandicuss Weather boot screen."""
+
+    cloud = [
+        "      .--.      ",
+        "   .-(    ).    ",
+        "  (___.__)__)   ",
+    ]
+
+    scene_width = 78
+
+    # Four clouds with slightly different movement.
+    # Each tuple contains the horizontal position
+    # for one cloud during that frame.
+    frames = [
+        (3, 47, 20, 61),
+        (5, 45, 22, 59),
+        (7, 43, 24, 57),
+        (9, 41, 26, 55),
+        (11, 39, 28, 53),
+        (13, 37, 30, 51),
+        (15, 35, 32, 49),
+    ]
+
+    def make_cloud_row(positions, styles):
+        lines = []
+
+        for cloud_row in range(len(cloud)):
+            canvas = [" "] * scene_width
+
+            for position, style_number in zip(
+                positions,
+                styles,
+            ):
+                cloud_part = cloud[cloud_row]
+
+                for index, character in enumerate(
+                    cloud_part
+                ):
+                    target = position + index
+
+                    if (
+                        0 <= target < scene_width
+                        and character != " "
+                    ):
+                        canvas[target] = (
+                            character,
+                            style_number,
+                        )
+
+            rendered = Text()
+
+            for item in canvas:
+                if isinstance(item, tuple):
+                    character, style_number = item
+
+                    if style_number == 1:
+                        style = "bold bright_cyan"
+                    else:
+                        style = "bold white"
+
+                    rendered.append(
+                        character,
+                        style=style,
+                    )
+
+                else:
+                    rendered.append(item)
+
+            lines.append(rendered)
+
+        return lines
+
+    for cloud_one, cloud_two, cloud_three, cloud_four in frames:
+        console.clear()
+
+        console.print()
+
+        # Upper cloud level
+        upper_lines = make_cloud_row(
+            (
+                cloud_one,
+                cloud_two,
+            ),
+            (
+                1,
+                2,
+            ),
+        )
+
+        for cloud_line in upper_lines:
+            console.print(
+                cloud_line,
+                justify="center",
+            )
+
+        # Space between cloud levels
+        console.print()
+
+        # Lower cloud level
+        lower_lines = make_cloud_row(
+            (
+                cloud_three,
+                cloud_four,
+            ),
+            (
+                2,
+                1,
+            ),
+        )
+
+        for cloud_line in lower_lines:
+            console.print(
+                cloud_line,
+                justify="center",
+            )
+
+        console.print()
+
+        boot_title = Text()
+
+        title_text = "BANDICUSS  WEATHER CENTER"
+        title_padding = max(
+            0,
+            (scene_width - len(title_text)) // 2,
+        )
+
+        boot_title.append(
+            " " * title_padding,
+        )
+        boot_title.append(
+            "BANDICUSS",
+            style="bold bright_cyan",
+        )
+        boot_title.append(
+            "  WEATHER CENTER",
+            style="bold white",
+        )
+
+        console.print(
+            boot_title,
+            justify="center",
+        )
+
+        system_text = "FIELD WEATHER SYSTEM"
+        system_padding = max(
+            0,
+            (scene_width - len(system_text)) // 2,
+        )
+
+        system_line = Text()
+        system_line.append(
+            " " * system_padding,
+        )
+        system_line.append(
+            system_text,
+            style="grey62",
+        )
+
+        console.print(
+            system_line,
+            justify="center",
+        )
+
+        version_text = "v4.0"
+        version_padding = max(
+            0,
+            (scene_width - len(version_text)) // 2,
+        )
+
+        version_line = Text()
+        version_line.append(
+            " " * version_padding,
+        )
+        version_line.append(
+            version_text,
+            style="bold bright_cyan",
+        )
+
+        console.print(
+            version_line,
+            justify="center",
+        )
+
+        time.sleep(0.20)
+
+    time.sleep(0.45)
+
+
+def draw_startup_screen(station):
+    """Draw the v4 station-selection screen."""
+
+    console.clear()
+
+    title_text = Text(justify="center")
+    title_text.append(
+        "BANDICUSS",
+        style="bold bright_cyan",
+    )
+    title_text.append(
+        "  WEATHER CENTER",
+        style="bold white",
+    )
+
+    subtitle = Text(
+        "AVIATION • FORECAST • ALERTS • GRAPHICAL WEATHER",
+        style="grey62",
+        justify="center",
+    )
+
+    console.print(
+        Panel(
+            Group(
+                title_text,
+                subtitle,
+            ),
+            border_style=RICH_BORDER,
+            padding=(0, 1),
+        )
+    )
+
+    system_table = Table.grid(expand=True)
+    system_table.add_column(ratio=1)
+    system_table.add_column(ratio=2)
+    system_table.add_column(ratio=1)
+    system_table.add_column(ratio=2)
+
+    system_table.add_row(
+        Text(
+            "SYSTEM",
+            style=RICH_LABEL,
+        ),
+        Text(
+            "FIELD WEATHER",
+            style="bold white",
+        ),
+        Text(
+            "VERSION",
+            style=RICH_LABEL,
+        ),
+        Text(
+            "v4.0",
+            style="bold bright_cyan",
+        ),
+    )
+
+    system_table.add_row(
+        Text(
+            "DEFAULT",
+            style=RICH_LABEL,
+        ),
+        Text(
+            DEFAULT_STATION,
+            style="bold white",
+        ),
+        Text(
+            "STATUS",
+            style=RICH_LABEL,
+        ),
+        Text(
+            "READY",
+            style="bold bright_green",
+        ),
+    )
+
+    console.print(
+        Panel(
+            system_table,
+            border_style="blue",
+            padding=(0, 1),
+        )
+    )
+
+    station_info = Group(
+        Text(
+            "SELECT AVIATION WEATHER STATION",
+            style="bold white",
+            justify="center",
+        ),
+        Text(""),
+        Text(
+            "Enter a four-letter ICAO airport identifier.",
+            style="white",
+            justify="center",
+        ),
+        Text(
+            "Press ENTER to use the default station.",
+            style="grey62",
+            justify="center",
+        ),
+        Text(""),
+        Text(
+            "KDCA    KADW    KBWI    KJFK    EGLL",
+            style="bold bright_cyan",
+            justify="center",
+        ),
+    )
+
+    console.print(
+        Panel(
+            station_info,
+            title="[bold bright_cyan]STATION SELECTION[/]",
+            border_style=RICH_BORDER,
+            padding=(1, 1),
+        )
+    )
+
+    controls = Text(justify="center")
+    controls.append(
+        "[ENTER]",
+        style="bold bright_cyan",
+    )
+    controls.append(
+        f" USE {station}",
+        style="white",
+    )
+    controls.append(
+        "     ",
+    )
+    controls.append(
+        "[ICAO]",
+        style="bold bright_cyan",
+    )
+    controls.append(
+        " CHANGE STATION",
+        style="white",
+    )
+
+    console.print(controls)
+    console.print()
+
+    console.print(
+        Rule(
+            "[grey62]BANDICUSS WEATHER • v4.0[/]",
+            style="grey35",
+        )
+    )
+
+    console.print()
+
+
 def main():
     station = DEFAULT_STATION
 
-    clear()
+    startup_animation()
 
-    title(
-        "BANDICUSS WEATHER MODULE"
+    draw_startup_screen(
+        station
     )
-
-    print()
-
-    print(
-        f" Default station: "
-        f"{DEFAULT_STATION}"
-    )
-
-    print()
-
-    print(
-        " Enter an ICAO airport identifier."
-    )
-
-    print(
-        " Examples: "
-        "KDCA  KADW  KBWI  KJFK  EGLL"
-    )
-
-    print()
 
     selected = input(
-        f" ICAO station "
-        f"[{station}]: "
+        f" ICAO STATION [{station}]: "
     ).strip().upper()
 
     if selected:
@@ -3217,7 +3538,7 @@ def main():
         station
     )
 
-    clear()
+    console.clear()
 
 
 if __name__ == "__main__":
