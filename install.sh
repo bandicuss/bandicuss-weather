@@ -6,6 +6,7 @@ APP_NAME="Bandicuss Weather"
 INSTALL_DIR="$HOME/.local/share/bandicuss-weather"
 DESKTOP_DIR="$HOME/Desktop"
 LAUNCHER="$DESKTOP_DIR/bandicuss-weather.desktop"
+LABWC_CONFIG="$HOME/.config/labwc/rc.xml"
 
 echo "=============================================="
 echo "       BANDICUSS WEATHER INSTALLER"
@@ -70,6 +71,7 @@ mkdir -p "$DESKTOP_DIR"
 
 cp "$SCRIPT_DIR/weather.py" "$INSTALL_DIR/weather.py"
 
+# Create desktop launcher
 cat > "$LAUNCHER" <<EOF
 [Desktop Entry]
 Version=1.0
@@ -83,6 +85,102 @@ Categories=Utility;
 EOF
 
 chmod +x "$LAUNCHER"
+
+# Configure labwc fullscreen rule when available
+if [ -f "$LABWC_CONFIG" ]; then
+
+    echo "Configuring fullscreen launch..."
+
+    if grep -Fq '<windowRule title="Bandicuss Weather">' "$LABWC_CONFIG"; then
+
+        echo "Fullscreen rule already configured."
+
+    else
+
+        BACKUP_FILE="${LABWC_CONFIG}.bandicuss-backup-$(date +%Y%m%d-%H%M%S)"
+        cp "$LABWC_CONFIG" "$BACKUP_FILE"
+
+        if grep -Fq '<windowRules>' "$LABWC_CONFIG"; then
+
+            python3 - "$LABWC_CONFIG" <<'PY'
+import sys
+
+path = sys.argv[1]
+
+with open(path, "r", encoding="utf-8") as file:
+    text = file.read()
+
+rule = """    <windowRule title="Bandicuss Weather">
+      <action name="ToggleFullscreen"/>
+    </windowRule>
+"""
+
+marker = "</windowRules>"
+
+if marker not in text:
+    raise SystemExit("Could not locate closing windowRules tag.")
+
+text = text.replace(
+    marker,
+    rule + "  " + marker,
+    1,
+)
+
+with open(path, "w", encoding="utf-8") as file:
+    file.write(text)
+PY
+
+        else
+
+            python3 - "$LABWC_CONFIG" <<'PY'
+import sys
+
+path = sys.argv[1]
+
+with open(path, "r", encoding="utf-8") as file:
+    text = file.read()
+
+rules = """  <windowRules>
+    <windowRule title="Bandicuss Weather">
+      <action name="ToggleFullscreen"/>
+    </windowRule>
+  </windowRules>
+"""
+
+marker = "</openbox_config>"
+
+if marker not in text:
+    raise SystemExit("Could not locate closing openbox_config tag.")
+
+text = text.replace(
+    marker,
+    rules + marker,
+    1,
+)
+
+with open(path, "w", encoding="utf-8") as file:
+    file.write(text)
+PY
+
+        fi
+
+        echo "Fullscreen rule added."
+        echo "labwc backup created:"
+        echo " $BACKUP_FILE"
+
+    fi
+
+    # Reload labwc when running inside an active labwc session.
+    if command -v labwc >/dev/null 2>&1 && [ -n "${LABWC_PID:-}" ]; then
+        labwc --reconfigure >/dev/null 2>&1 || true
+    fi
+
+else
+
+    echo "labwc configuration was not found."
+    echo "Fullscreen setup was skipped."
+
+fi
 
 echo
 echo "=============================================="
