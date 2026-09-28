@@ -30,7 +30,7 @@ WPC_URL = "https://www.wpc.ncep.noaa.gov/"
 NHC_URL = "https://www.nhc.noaa.gov/"
 
 USER_AGENT = (
-    "Bandicuss-Field-Console/3.0 "
+    "Bandicuss-Weather/4.0 "
     "(personal weather console)"
 )
 
