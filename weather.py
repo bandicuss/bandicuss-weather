@@ -6,7 +6,6 @@ import os
 import math
 import textwrap
 import subprocess
-import time
 from datetime import datetime
 
 from rich.console import Console, Group
@@ -3178,192 +3177,14 @@ def weather_menu(station):
 # ==========================================================
 
 def startup_animation():
-    """Short animated Bandicuss Weather boot screen."""
+    """Play the optional Pixel intro before station selection."""
+    try:
+        from bandicuss_intro import play_intro
+        play_intro()
+    except Exception as error:
+        # An optional animation must never block access to weather products.
+        console.print(f"Intro skipped: {error}", style="grey62", markup=False)
 
-    cloud = [
-        "      .--.      ",
-        "   .-(    ).    ",
-        "  (___.__)__)   ",
-    ]
-
-    scene_width = 78
-
-    # Four clouds with slightly different movement.
-    # Each tuple contains the horizontal position
-    # for one cloud during that frame.
-    frames = [
-        (3, 47, 20, 61),
-        (5, 45, 22, 59),
-        (7, 43, 24, 57),
-        (9, 41, 26, 55),
-        (11, 39, 28, 53),
-        (13, 37, 30, 51),
-        (15, 35, 32, 49),
-    ]
-
-    def make_cloud_row(positions, styles):
-        lines = []
-
-        for cloud_row in range(len(cloud)):
-            canvas = [" "] * scene_width
-
-            for position, style_number in zip(
-                positions,
-                styles,
-            ):
-                cloud_part = cloud[cloud_row]
-
-                for index, character in enumerate(
-                    cloud_part
-                ):
-                    target = position + index
-
-                    if (
-                        0 <= target < scene_width
-                        and character != " "
-                    ):
-                        canvas[target] = (
-                            character,
-                            style_number,
-                        )
-
-            rendered = Text()
-
-            for item in canvas:
-                if isinstance(item, tuple):
-                    character, style_number = item
-
-                    if style_number == 1:
-                        style = "bold bright_cyan"
-                    else:
-                        style = "bold white"
-
-                    rendered.append(
-                        character,
-                        style=style,
-                    )
-
-                else:
-                    rendered.append(item)
-
-            lines.append(rendered)
-
-        return lines
-
-    for cloud_one, cloud_two, cloud_three, cloud_four in frames:
-        console.clear()
-
-        console.print()
-
-        # Upper cloud level
-        upper_lines = make_cloud_row(
-            (
-                cloud_one,
-                cloud_two,
-            ),
-            (
-                1,
-                2,
-            ),
-        )
-
-        for cloud_line in upper_lines:
-            console.print(
-                cloud_line,
-                justify="center",
-            )
-
-        # Space between cloud levels
-        console.print()
-
-        # Lower cloud level
-        lower_lines = make_cloud_row(
-            (
-                cloud_three,
-                cloud_four,
-            ),
-            (
-                2,
-                1,
-            ),
-        )
-
-        for cloud_line in lower_lines:
-            console.print(
-                cloud_line,
-                justify="center",
-            )
-
-        console.print()
-
-        boot_title = Text()
-
-        title_text = "BANDICUSS  WEATHER CENTER"
-        title_padding = max(
-            0,
-            (scene_width - len(title_text)) // 2,
-        )
-
-        boot_title.append(
-            " " * title_padding,
-        )
-        boot_title.append(
-            "BANDICUSS",
-            style="bold bright_cyan",
-        )
-        boot_title.append(
-            "  WEATHER CENTER",
-            style="bold white",
-        )
-
-        console.print(
-            boot_title,
-            justify="center",
-        )
-
-        system_text = "FIELD WEATHER SYSTEM"
-        system_padding = max(
-            0,
-            (scene_width - len(system_text)) // 2,
-        )
-
-        system_line = Text()
-        system_line.append(
-            " " * system_padding,
-        )
-        system_line.append(
-            system_text,
-            style="grey62",
-        )
-
-        console.print(
-            system_line,
-            justify="center",
-        )
-
-        version_text = "v4.0"
-        version_padding = max(
-            0,
-            (scene_width - len(version_text)) // 2,
-        )
-
-        version_line = Text()
-        version_line.append(
-            " " * version_padding,
-        )
-        version_line.append(
-            version_text,
-            style="bold bright_cyan",
-        )
-
-        console.print(
-            version_line,
-            justify="center",
-        )
-
-        time.sleep(0.20)
-
-    time.sleep(0.45)
 
 
 def draw_startup_screen(station):
