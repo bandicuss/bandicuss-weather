@@ -38,6 +38,8 @@ def position(left, top):
 
 
 def caption(text, columns, row, color=(146, 172, 190)):
-    return (position(max(0, (columns - len(text)) // 2), row)
+    # Clear the entire row before recentering a shorter scene caption.
+    return (position(0, row) + "\x1b[0m\x1b[2K"
+            + position(max(0, (columns - len(text)) // 2), row)
             + "\x1b[0m\x1b[38;2;%d;%d;%dm" % color
             + text + "\x1b[0m\x1b[K")

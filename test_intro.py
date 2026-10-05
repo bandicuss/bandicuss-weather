@@ -29,6 +29,32 @@ class IntroTests(unittest.TestCase):
                     x += 1
                     i += 1
 
+    def test_scene_caption_transitions_leave_no_previous_letters(self):
+        from bandicuss_intro_layout import caption
+        escape = re.compile(r'\x1b\[([0-9;]*)([A-Za-z])')
+        for columns in (79, 97, 158):
+            cells = [' '] * columns
+            for scene, name in enumerate(intro.SCENES):
+                text = f'{name}   /   {scene + 1} OF 4'
+                rendered = caption(text, columns, 23)
+                x = i = 0
+                while i < len(rendered):
+                    match = escape.match(rendered, i)
+                    if match:
+                        if match[2] == 'H':
+                            x = int(match[1].split(';')[1]) - 1
+                        elif match[2] == 'K':
+                            if match[1] == '2':
+                                cells[:] = [' '] * columns
+                            else:
+                                cells[x:] = [' '] * (columns - x)
+                        i = match.end()
+                    else:
+                        cells[x] = rendered[i]
+                        x += 1
+                        i += 1
+                self.assertEqual(''.join(cells).strip(), text)
+
     def test_redirected_output_skips(self):
         output = io.StringIO()
         with patch.object(intro.sys, 'stdout', output):
