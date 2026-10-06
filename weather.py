@@ -29,7 +29,7 @@ WPC_URL = "https://www.wpc.ncep.noaa.gov/"
 NHC_URL = "https://www.nhc.noaa.gov/"
 
 USER_AGENT = (
-    "Bandicuss-Weather/4.0 "
+    "Bandicuss-Weather/4.1 "
     "(personal weather console)"
 )
 
@@ -825,7 +825,7 @@ def display_metar(station, wx):
 
     console.print(
         Rule(
-            "[grey62]BANDICUSS WEATHER • METAR / CONDITIONS • v4.0[/]",
+            "[grey62]BANDICUSS WEATHER • METAR / CONDITIONS • v4.1[/]",
             style="grey35",
         )
     )
@@ -893,7 +893,7 @@ def display_taf(station, taf):
         console.print()
         console.print(
             Rule(
-                "[grey62]BANDICUSS WEATHER • TERMINAL FORECAST • v4.0[/]",
+                "[grey62]BANDICUSS WEATHER • TERMINAL FORECAST • v4.1[/]",
                 style="grey35",
             )
         )
@@ -1389,7 +1389,7 @@ def display_taf(station, taf):
 
     console.print(
         Rule(
-            "[grey62]BANDICUSS WEATHER • TERMINAL FORECAST • v4.0[/]",
+            "[grey62]BANDICUSS WEATHER • TERMINAL FORECAST • v4.1[/]",
             style="grey35",
         )
     )
@@ -1705,7 +1705,7 @@ def display_summary(station, wx, taf):
 
     console.print(
         Rule(
-            "[grey62]BANDICUSS WEATHER • AVIATION SUMMARY • v4.0[/]",
+            "[grey62]BANDICUSS WEATHER • AVIATION SUMMARY • v4.1[/]",
             style="grey35",
         )
     )
@@ -1774,7 +1774,7 @@ def display_alerts(
 
         console.print(
             Rule(
-                "[grey62]BANDICUSS WEATHER • NWS ALERTS • v4.0[/]",
+                "[grey62]BANDICUSS WEATHER • NWS ALERTS • v4.1[/]",
                 style="grey35",
             )
         )
@@ -2210,7 +2210,7 @@ def display_nws_forecast(station, wx):
         console.print(
             Rule(
                 "[grey62]BANDICUSS WEATHER • "
-                "NWS FORECAST • v4.0[/]",
+                "NWS FORECAST • v4.1[/]",
                 style="grey35",
             )
         )
@@ -2778,7 +2778,7 @@ def graphical_weather_menu():
         console.print(
             Rule(
                 "[grey62]BANDICUSS WEATHER • "
-                "GRAPHICAL WEATHER • v4.0[/]",
+                "GRAPHICAL WEATHER • v4.1[/]",
                 style="grey35",
             )
         )
@@ -3110,7 +3110,7 @@ def draw_v4_dashboard(station, wx, alert_count):
     console.print()
     console.print(
         Rule(
-            "[grey62]BANDICUSS WEATHER • v4.0[/]",
+            "[grey62]BANDICUSS WEATHER • v4.1[/]",
             style="grey35",
         )
     )
@@ -3250,7 +3250,7 @@ def draw_startup_screen(station):
             style=RICH_LABEL,
         ),
         Text(
-            "v4.0",
+            "v4.1",
             style="bold bright_cyan",
         ),
     )
@@ -3342,7 +3342,7 @@ def draw_startup_screen(station):
 
     console.print(
         Rule(
-            "[grey62]BANDICUSS WEATHER • v4.0[/]",
+            "[grey62]BANDICUSS WEATHER • v4.1[/]",
             style="grey35",
         )
     )

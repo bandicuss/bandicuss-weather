@@ -1,8 +1,16 @@
 # Adapted from theNeighborrr/bandicuss-weather-intros, revision c1640f3.
 # Copyright (c) 2026 theNeighborrr. MIT license; see LICENSE-intros.
-"""Bandicuss weather cinema: standalone terminal preview, no network/dependencies.
+"""Pixel startup animation for Bandicuss Weather v4.1.
 
-Run with /usr/bin/python3 bandicuss_intro.py. Import play_intro() from the installed settings menu. Does not patch or launch the installed weather app.
+The application calls play_intro() before station selection. The animation
+performs no weather acquisition; Horizon Observatory handles the live request
+status display afterward. Pixel drawing primitives also support that display.
+
+The optional intro needs an interactive terminal of at least 79 columns by
+24 rows. Press any key to continue; Ctrl-C exits. NO_COLOR or a nonempty
+BANDICUSS_NO_ANIMATION disables it, and redirected or smaller terminals skip it.
+Horizon Observatory supports 97x23 independently of the startup intro.
+Running this module directly plays only the startup animation.
 """
 import math
 import os
@@ -191,8 +199,10 @@ def ansi_frame(pixels,scene,columns=80,rows=24):
 def play_intro(duration=DURATION):
     """Play once, skippable. Always restore input mode, cursor and screen.
 
-    Small terminals, redirected output and NO_COLOR / BANDICUSS_NO_ANIMATION
-    skip the intro. SIGINT remains active. This function does not fetch data.
+    Requires an interactive terminal of at least 79x24. Any key continues;
+    Ctrl-C exits. Smaller terminals, redirected output, NO_COLOR (even empty),
+    or a nonempty BANDICUSS_NO_ANIMATION skip it. This function does not fetch
+    data or control the subsequent Horizon Observatory acquisition screen.
     """
     if not sys.stdout.isatty() or not sys.stdin.isatty():return
     if os.environ.get('NO_COLOR') is not None or os.environ.get('BANDICUSS_NO_ANIMATION'):return
