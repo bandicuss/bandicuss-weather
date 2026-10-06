@@ -70,6 +70,10 @@ mkdir -p "$INSTALL_DIR"
 mkdir -p "$DESKTOP_DIR"
 
 cp "$SCRIPT_DIR/weather.py" "$INSTALL_DIR/weather.py"
+# Include the approved acquisition artwork and its standard-library helpers.
+for module in bandicuss_acquisition.py bandicuss_horizon.py bandicuss_intro.py bandicuss_intro_layout.py LICENSE-intros; do
+    cp "$SCRIPT_DIR/$module" "$INSTALL_DIR/$module"
+done
 
 # Create desktop launcher
 cat > "$LAUNCHER" <<EOF

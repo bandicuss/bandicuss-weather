@@ -356,23 +356,32 @@ def fetch_nws_forecast(lat, lon):
     )
 
 
-def get_alert_count(wx):
+def get_alert_count(wx, report=None):
     lat = wx.get("lat")
     lon = wx.get("lon")
 
     if lat is None or lon is None:
+        if report is not None:
+            report(2, "SKIPPED")
         return None, []
 
+    if report is not None:
+        report(2, "CHECKING")
     try:
         alerts = fetch_nws_alerts(
             lat,
             lon
         )
 
-        return len(alerts), alerts
-
+        count = len(alerts)
     except Exception:
+        if report is not None:
+            report(2, "FAILED")
         return None, []
+
+    if report is not None:
+        report(2, "CHECKED")
+    return count, alerts
 
 
 # ==========================================================
@@ -2833,65 +2842,67 @@ def graphical_weather_menu():
 # STATION DATA
 # ==========================================================
 
-def load_station(station):
-    clear()
+def load_station(station, include_alerts=False):
+    """Preserve acquisition outcomes; report real stages without worker output.
 
-    title(
-        "BANDICUSS WEATHER"
-    )
-
-    print()
-
-    print(
-        f" Retrieving aviation weather "
-        f"for {station}..."
-    )
-
-    print()
-
-    try:
-
-        metar = fetch_metar(
-            station
-        )
+    The default return remains (metar, taf). The weather center requests the
+    existing subsequent alert check in the same display session and receives
+    (metar, taf, alert_count, alerts).
+    """
+    def acquire(report):
+        report(0, "ACQUIRING")
+        error = None
+        try:
+            metar = fetch_metar(station)
+        except Exception as failure:
+            metar = None
+            error = str(failure)
+            report(0, "FAILED")
+        else:
+            report(0, "UNAVAILABLE" if metar is None else "ACQUIRED")
 
         if metar is None:
+            report(1, "SKIPPED")
+            report(2, "SKIPPED")
+            return None, None, None, [], error
 
-            print(
-                f" No METAR data found "
-                f"for {station}."
-            )
+        report(1, "ACQUIRING")
+        try:
+            taf = fetch_taf(station)
+        except Exception:
+            taf = None
+            report(1, "FAILED")
+        else:
+            report(1, "UNAVAILABLE" if taf is None else "ACQUIRED")
 
-            pause()
-
-            return None, None
-
-    except Exception as error:
-
-        print(
-            " Unable to retrieve "
-            "METAR data."
-        )
-
-        print()
-
-        wrapped(
-            str(error),
-            " "
-        )
-
-        pause()
-
-        return None, None
+        if include_alerts:
+            alert_count, alerts = get_alert_count(metar, report)
+        else:
+            report(2, "SKIPPED")
+            alert_count, alerts = None, []
+        return metar, taf, alert_count, alerts, error
 
     try:
-        taf = fetch_taf(
-            station
-        )
-
+        from bandicuss_acquisition import run_acquisition
     except Exception:
-        taf = None
+        # Missing optional renderer dependencies must not prevent acquisition.
+        result = acquire(lambda index, status: None)
+    else:
+        result = run_acquisition(station, acquire)
 
+    metar, taf, alert_count, alerts, error = result
+    if metar is None:
+        # Original METAR error messages and acknowledgement run on the main
+        # thread, after the display has restored the terminal.
+        if error is None:
+            print(f" No METAR data found for {station}.")
+        else:
+            print(" Unable to retrieve METAR data.")
+            print()
+            wrapped(error, " ")
+        pause()
+    if include_alerts:
+        return metar, taf, alert_count, alerts
     return metar, taf
 
 
@@ -3111,12 +3122,10 @@ def draw_v4_dashboard(station, wx, alert_count):
 # ==========================================================
 
 def weather_menu(station):
-    metar, taf = load_station(station)
+    metar, taf, alert_count, alerts = load_station(station, include_alerts=True)
 
     if metar is None:
         return station
-
-    alert_count, alerts = get_alert_count(metar)
 
     while True:
         draw_v4_dashboard(station, metar, alert_count)
@@ -3142,12 +3151,13 @@ def weather_menu(station):
             graphical_weather_menu()
 
         elif choice == "r":
-            new_metar, new_taf = load_station(station)
+            new_metar, new_taf, new_count, new_alerts = load_station(
+                station, include_alerts=True)
 
             if new_metar is not None:
                 metar = new_metar
                 taf = new_taf
-                alert_count, alerts = get_alert_count(metar)
+                alert_count, alerts = new_count, new_alerts
 
         elif choice == "s":
             new_station = input(
@@ -3155,13 +3165,14 @@ def weather_menu(station):
             ).strip().upper()
 
             if new_station:
-                new_metar, new_taf = load_station(new_station)
+                new_metar, new_taf, new_count, new_alerts = load_station(
+                    new_station, include_alerts=True)
 
                 if new_metar is not None:
                     station = new_station
                     metar = new_metar
                     taf = new_taf
-                    alert_count, alerts = get_alert_count(metar)
+                    alert_count, alerts = new_count, new_alerts
 
         elif choice == "q":
             return station
